@@ -1,0 +1,20 @@
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and scratch files
+*.log
+chrome_err.log
+scratch/
+
+# IDE files
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Build and test artifacts
+*.tmp
+chrome-profile/
+test-profile/

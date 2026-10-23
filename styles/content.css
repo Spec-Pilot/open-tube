@@ -1,0 +1,71 @@
+/**
+ * OpenTube AdShield - High-Performance Cosmetic Ad Blocking Filter
+ * Hides banner ads, promoted items, sponsored suggestions, and anti-adblock modals.
+ */
+
+/* Feed & Home ads */
+ytd-ad-slot-renderer,
+ytd-in-feed-ad-layout-renderer,
+ytd-banner-promo-renderer,
+ytd-statement-banner-renderer,
+ytd-promoted-sparkles-web-renderer,
+ytd-promoted-video-renderer,
+ytd-compact-promoted-video-renderer,
+#masthead-ad,
+ytd-masthead-ad-v3-renderer,
+ytd-rich-item-renderer:has(> #content > ytd-ad-slot-renderer),
+ytd-rich-item-renderer:has(ytd-in-feed-ad-layout-renderer),
+ytd-rich-section-renderer:has(ytd-statement-banner-renderer),
+
+/* Video Watch Page Ads */
+#player-ads,
+ytd-player-legacy-desktop-watch-ads-renderer,
+#panels:has(ytd-ads-engagement-panel-content-renderer),
+ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"],
+ytd-action-companion-ad-renderer,
+#secondary #companion,
+#secondary-inner #companion,
+ytd-companion-ad-renderer,
+
+/* In-Player Overlays & Popups */
+.ytp-ad-overlay-container,
+.ytp-ad-message-container,
+.ytp-ad-action-interstitial-background-container,
+.ytp-ad-image-overlay,
+.ytp-ad-text-overlay,
+.ytp-ad-hover-text-button-renderer,
+ytd-ad-hover-text-button-renderer,
+.annotation.annotation-type-custom,
+.ytp-ad-overlay-slot,
+
+/* Search Result Ads */
+ytd-promoted-sparkles-text-search-renderer,
+ytd-search-pyv-renderer,
+
+/* Shorts Ads */
+ytd-reel-video-renderer:has(.ytd-ad-slot-renderer),
+ytd-reel-video-renderer:has([aria-label*="Sponsored"]),
+
+/* Anti-Adblock Popup & Modal Overlay */
+tp-yt-paper-dialog:has(ytd-enforcement-message-view-model),
+ytd-enforcement-message-view-model,
+#dialog:has(ytd-enforcement-message-view-model),
+tp-yt-iron-overlay-backdrop.opened:has(~ tp-yt-paper-dialog ytd-enforcement-message-view-model) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: absolute !important;
+    left: -99999px !important;
+    top: -99999px !important;
+}
+
+/* Ensure no blank spaces left behind by removed ads */
+ytd-rich-item-renderer:has(ytd-ad-slot-renderer) {
+    display: none !important;
+}
