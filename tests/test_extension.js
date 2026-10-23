@@ -115,10 +115,9 @@ async function run() {
   let serviceWorkerTarget = null;
 
   for (const t of targets) {
-    console.log(`- [${t.type}] ${t.title || t.url}`);
     if (t.url.startsWith('chrome-extension://')) {
       const match = t.url.match(/chrome-extension:\/\/([a-z0-9]+)/);
-      if (match) {
+      if (match && t.title && t.title.toLowerCase().includes('opentube')) {
         extensionId = match[1];
         if (t.type === 'service_worker') {
           serviceWorkerTarget = t;
