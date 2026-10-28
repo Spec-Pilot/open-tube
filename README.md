@@ -1,7 +1,15 @@
+<p align="center">
+  <img src="assets/banner.png" alt="OpenTube AdShield Banner" width="100%" style="border-radius: 10px;" />
+</p>
+
 # 🛡️ OpenTube AdShield
 
-> **A high-performance, open-source YouTube ad blocker and accelerator built for Chrome Manifest V3.**  
+> **A high-performance, open-source YouTube ad blocker and non-stop player for Chrome and Edge.**  
 > Blazingly fast, undetectable, 100% client-side, and zero telemetry.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
+[![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue.svg)](manifest.json)
+[![Chrome & Edge](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge%20%7C%20Brave-red.svg)](INSTALL.md)
 
 ---
 
@@ -18,28 +26,27 @@
 
 ---
 
-## 📥 Installation (Load Unpacked in Chrome / Brave / Edge)
+## 📥 Installation
 
-Since OpenTube AdShield is an open-source project, you can load it directly into any Chromium browser in seconds:
+Installing OpenTube AdShield takes less than 60 seconds on any Chromium browser.
 
+👉 **[Click here for the Detailed Step-by-Step Installation Guide (Chrome, Edge, Brave, Opera)](INSTALL.md)**
+
+### Quick Setup:
 1. **Clone or Download** this repository:
    ```bash
-   git clone https://github.com/opentube/adshield.git
+   git clone https://github.com/Spec-Pilot/open-tube.git
    ```
-   *(Or download the ZIP file from GitHub and extract it)*
+   *(Or download the [ZIP archive](https://github.com/Spec-Pilot/open-tube/archive/refs/heads/main.zip) and extract it)*
 
-2. Open your browser and navigate to the extensions page:
+2. Open your browser's extensions manager:
    * **Chrome**: `chrome://extensions`
-   * **Brave**: `brave://extensions`
    * **Edge**: `edge://extensions`
+   * **Brave**: `brave://extensions`
 
-3. Turn **ON** the **"Developer mode"** toggle in the top-right corner.
-
-4. Click the **"Load unpacked"** button in the top-left toolbar.
-
-5. Select the project directory (`d:\youtube` or the folder containing `manifest.json`).
-
-6. Open [YouTube](https://www.youtube.com) and enjoy uninterrupted, ad-free video streaming!
+3. Turn **ON** the **"Developer mode"** toggle (top-right corner).
+4. Click **"Load unpacked"** and select the folder containing `manifest.json`.
+5. Open [YouTube](https://www.youtube.com) and enjoy clean, uninterrupted video & music streaming!
 
 ---
 
