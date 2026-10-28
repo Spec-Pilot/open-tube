@@ -7,6 +7,7 @@
 
 ## 🚀 Key Features
 
+* **🎵 Non-Stop Music & Autoplay**: Prevents YouTube from auto-pausing when autoplaying to the next video, auto-dismisses "Video paused. Continue watching?" inactivity popups, and preserves background music streaming when away from your PC.
 * **⚡ Ultra Fast-Forward (16x)**: Instantly accelerates unskippable video ads to 16x speed and mutes audio, clearing them in milliseconds.
 * **⏭️ Auto-Click Skip**: Automatically finds and clicks skip buttons (`.ytp-ad-skip-button-modern`, `.ytp-skip-ad-button`) the instant they appear.
 * **🛡️ Anti-Adblock Modal Bypass**: Automatically detects and dismisses YouTube's *"Ad blockers violate YouTube's Terms of Service"* enforcement popup and restores playback seamlessly.
@@ -44,29 +45,33 @@ Since OpenTube AdShield is an open-source project, you can load it directly into
 
 ## 🛠️ Architecture & How It Works
 
-Traditional ad blockers that block all YouTube network requests often trigger YouTube's anti-adblock detection or playback errors. OpenTube AdShield uses a modern **hybrid evasion architecture**:
+Traditional ad blockers that block network requests often trigger YouTube's anti-adblock watchdog, resulting in stuck videos, frozen ads, or repeated video pauses. OpenTube AdShield uses a **zero-ad pre-emptive sterilization architecture**:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     OpenTube AdShield                       │
 ├─────────────────────────┬───────────────────────────────────┤
-│ 1. DeclarativeNetRequest│ Blocks 3rd-party tracking         │
-│    (Manifest V3)        │ (doubleclick, pagead, telemetry)  │
+│ 1. Zero-Ad Sterilization│ Strips adPlacements & adSlots at  │
+│    (MAIN World)         │ source (ytInitialPlayerResponse)  │
 ├─────────────────────────┼───────────────────────────────────┤
-│ 2. Video Accelerator    │ Speeds unskippable ads to 16x     │
-│    & Instant Skipper    │ & clicks skip buttons immediately │
+│ 2. Stealth Mock API     │ Intercepts /player, /next & stats │
+│    & Tracker Evasion    │ Fakes 200 OK without errors       │
 ├─────────────────────────┼───────────────────────────────────┤
-│ 3. Enforcement Bypass   │ Dismisses "Ad blocker violation"  │
-│                         │ popups & auto-resumes playback    │
+│ 3. Player Engine Hook   │ Calls player.skipAd() in 0ms &    │
+│    & Anti-Pause Shield  │ auto-resumes unauthorized pauses  │
 ├─────────────────────────┼───────────────────────────────────┤
-│ 4. Cosmetic Filters     │ CSS-level hiding of mastheads,    │
-│                         │ feed promos & sponsored cards     │
+│ 4. DeclarativeNetRequest│ Blocks 3rd-party ad networks      │
+│    (DNR V3)             │ (doubleclick, googleadservices)   │
+├─────────────────────────┼───────────────────────────────────┤
+│ 5. Cosmetic Hiding      │ Removes all banners, overlays &   │
+│                         │ skip buttons from visual viewport │
 └─────────────────────────┴───────────────────────────────────┘
 ```
 
-1. **Network Filtering (`rules/rules.json`)**: Uses Manifest V3's `declarativeNetRequest` API to block external tracking and analytics domains (`doubleclick.net`, `googleadservices.com`, `youtube.com/api/stats/ads`, `youtube.com/pagead/*`) without breaking player media buffers.
-2. **Dynamic Video Manipulation (`scripts/content.js`)**: Employs high-speed event monitoring (100ms interval + `MutationObserver`) on `.html5-video-player`. When an ad state (`.ad-showing`) is detected, it mutes audio, sets `playbackRate = 16.0`, and seeks to the ad's end while firing programmatic clicks on skip targets.
-3. **Popup Interface (`popup/`)**: Provides an interactive dashboard using vanilla HTML5, CSS custom properties, and `chrome.storage.local` to toggle features and view real-time blocked statistics.
+1. **Pre-Emptive Data Sterilization (`scripts/inject.js`)**: Executes in Chrome's `MAIN` world at `document_start`. Intercepts `window.ytInitialPlayerResponse` and `window.fetch` to remove `adPlacements`, `adSlots`, and `playerAds` before YouTube's player initializes. YouTube loads the video identical to YouTube Premium—ads are never scheduled or opened.
+2. **Stealth Mocking & Tracker Evasion**: Swallows tracking requests (`/api/stats/ads`, `/pagead/`, `/ptracking`) and returns synthetic 200 OK responses, completely bypassing YouTube's anti-adblock detection.
+3. **Player Engine Control & Anti-Pause Watchdog**: Direct hook into `#movie_player`. If an ad state ever attempts to activate, it calls `player.skipAd()` in 0ms. If YouTube tries to pause playback during an ad transition, the anti-pause shield detects the non-user pause and immediately resumes the video.
+4. **Cosmetic Filtering (`styles/content.css`)**: Pure CSS rules hide ad slots, banners, and player overlays with zero layout shifts.
 
 ---
 
@@ -79,23 +84,21 @@ d:/youtube/
 ├── LICENSE                    # MIT open-source license
 ├── CONTRIBUTING.md            # Guidelines for open-source contributors
 ├── rules/
-│   └── rules.json             # DeclarativeNetRequest ruleset
+│   └── rules.json             # DeclarativeNetRequest ruleset (third-party ads)
 ├── scripts/
-│   ├── content.js             # Core ad-skipping, speedup & anti-adblock bypass
+│   ├── inject.js              # MAIN world player response sterilizer & anti-pause
+│   ├── content.js             # Content script for DOM cleaning, shorts & stats
 │   ├── background.js          # Service worker for metrics & badge counters
 │   └── generate_icons.ps1     # High-resolution icon generator
 ├── styles/
-│   └── content.css            # High-performance cosmetic ad hiding rules
+│   └── content.css            # Cosmetic hiding rules for overlays & banners
 ├── popup/
 │   ├── popup.html             # Popup dashboard interface
 │   ├── popup.css              # Modern dark-mode styling
 │   └── popup.js               # Reactive settings and stats controller
-└── icons/
-    ├── icon.svg               # Vector shield emblem
-    ├── icon16.png             # 16x16 icon
-    ├── icon32.png             # 32x32 icon
-    ├── icon48.png             # 48x48 icon
-    └── icon128.png            # 128x128 high-res icon
+└── tests/
+    ├── test_inject.js         # Unit test suite for player sterilization
+    └── test_extension.js      # Chrome CDP automated integration test
 ```
 
 ---
@@ -111,6 +114,7 @@ Click the extension icon in your browser toolbar to access the control panel:
 | **Auto-Click Skip** | `ON` | Clicks skip buttons the moment they are rendered by the player. |
 | **Block Banners & Feeds** | `ON` | Hides feed ads, mastheads, and sponsored search results. |
 | **Bypass Adblock Popups** | `ON` | Dismisses YouTube's anti-adblock enforcement dialogs. |
+| **Non-Stop Music & Autoplay** | `ON` | Prevents auto-pausing on next video and bypasses idle popups. |
 
 ---
 
@@ -124,6 +128,12 @@ Contributions are welcome! Please follow these steps:
 4. Commit your changes (`git commit -m "Add amazing feature"`).
 5. Push to the branch (`git push origin feature/amazing-feature`).
 6. Open a Pull Request.
+
+---
+
+## ⚠️ Disclaimer
+
+OpenTube AdShield is an independent, community-driven open-source project created for educational and productivity purposes. YouTube™ is a registered trademark of Google LLC. This project is not affiliated with, endorsed by, or sponsored by YouTube or Google LLC.
 
 ---
 

@@ -34,32 +34,5 @@
       "urlFilter": "||adservice.google.com^",
       "resourceTypes": ["xmlhttprequest", "image", "sub_frame", "script"]
     }
-  },
-  {
-    "id": 5,
-    "priority": 1,
-    "action": { "type": "block" },
-    "condition": {
-      "urlFilter": "||youtube.com/api/stats/ads^",
-      "resourceTypes": ["xmlhttprequest", "ping", "image"]
-    }
-  },
-  {
-    "id": 6,
-    "priority": 1,
-    "action": { "type": "block" },
-    "condition": {
-      "urlFilter": "||youtube.com/pagead/*",
-      "resourceTypes": ["xmlhttprequest", "sub_frame", "image", "script"]
-    }
-  },
-  {
-    "id": 7,
-    "priority": 1,
-    "action": { "type": "block" },
-    "condition": {
-      "urlFilter": "||youtube.com/ptracking*",
-      "resourceTypes": ["xmlhttprequest", "ping", "image"]
-    }
   }
 ]

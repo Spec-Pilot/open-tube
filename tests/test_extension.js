@@ -139,9 +139,21 @@ async function run() {
       if (t.url.startsWith('chrome-extension://')) {
         const match = t.url.match(/chrome-extension:\/\/([a-z0-9]+)/);
         if (match) {
-          extensionId = match[1];
-          serviceWorkerTarget = t;
-          break;
+          try {
+            const probe = new CDPClient(t.webSocketDebuggerUrl);
+            await probe.connect();
+            const evalRes = await probe.send('Runtime.evaluate', {
+              expression: 'chrome.runtime.getManifest().name'
+            });
+            probe.close();
+            if (evalRes && evalRes.result && evalRes.result.value && evalRes.result.value.includes('OpenTube')) {
+              extensionId = match[1];
+              serviceWorkerTarget = t;
+              break;
+            }
+          } catch (e) {
+            // Ignore probe errors
+          }
         }
       }
     }
@@ -182,6 +194,7 @@ async function run() {
           hasAdsSkipped: !!document.getElementById('statAdsSkipped'),
           hasBannersBlocked: !!document.getElementById('statBannersBlocked'),
           hasTimeSaved: !!document.getElementById('statTimeSaved'),
+          hasToggleNonStop: !!document.getElementById('toggleNonStop'),
           statusText: document.getElementById('statusLabel')?.textContent
         })
       `,
@@ -274,6 +287,59 @@ async function run() {
   });
 
   console.log("Mock YouTube Simulation Results:", simResult.result.value);
+
+  // Test 4: Test MAIN World Inject Script logic (Zero-Ad Sterilization & Anti-Pause)
+  console.log("Testing YouTube MAIN world inject script (Response Sterilization & Instant skipAd)...");
+  const injectJs = fs.readFileSync(path.join(EXTENSION_PATH, 'scripts', 'inject.js'), 'utf8');
+
+  const injectSimResult = await ytClient.send('Runtime.evaluate', {
+    expression: `
+      (async function() {
+        // Run inject script
+        ${injectJs}
+
+        // 1. Test ytInitialPlayerResponse ad sterilization
+        window.ytInitialPlayerResponse = {
+          playabilityStatus: { status: 'OK' },
+          adPlacements: [{ id: 'pre-roll' }],
+          adSlots: [{ id: 'slot-1' }],
+          playerAds: [{ id: 'ad-1' }]
+        };
+
+        const cleanedPlayerResponse = window.ytInitialPlayerResponse;
+        const hasAdPlacements = !!cleanedPlayerResponse.adPlacements;
+        const hasAdSlots = !!cleanedPlayerResponse.adSlots;
+
+        // 2. Test movie_player instant skipAd hook & anti-pause
+        let skipAdTriggered = false;
+        let videoResumeTriggered = false;
+
+        document.body.innerHTML = '<div id="movie_player" class="html5-video-player ad-showing"><video class="html5-main-video"></video></div>';
+        const playerEl = document.getElementById('movie_player');
+        playerEl.isAd = () => true;
+        playerEl.getAdState = () => 1;
+        playerEl.skipAd = () => { skipAdTriggered = true; };
+        playerEl.playVideo = () => { videoResumeTriggered = true; };
+
+        const v = document.querySelector('video');
+        v.paused = true;
+
+        // Wait for inject script interval (60ms)
+        await new Promise(r => setTimeout(r, 80));
+
+        return {
+          adPlacementsRemoved: !hasAdPlacements,
+          adSlotsRemoved: !hasAdSlots,
+          skipAdTriggered: skipAdTriggered,
+          videoResumeTriggered: videoResumeTriggered
+        };
+      })()
+    `,
+    awaitPromise: true,
+    returnByValue: true
+  });
+
+  console.log("Inject Script Simulation Results:", injectSimResult.result.value);
 
   ytClient.close();
   cleanup();

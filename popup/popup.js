@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleAutoSkip = document.getElementById('toggleAutoSkip');
   const toggleBlockBanners = document.getElementById('toggleBlockBanners');
   const toggleBypassAntiAdblock = document.getElementById('toggleBypassAntiAdblock');
+  const toggleNonStop = document.getElementById('toggleNonStop');
 
   const statAdsSkipped = document.getElementById('statAdsSkipped');
   const statBannersBlocked = document.getElementById('statBannersBlocked');
@@ -27,7 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleFastForward,
     toggleAutoSkip,
     toggleBlockBanners,
-    toggleBypassAntiAdblock
+    toggleBypassAntiAdblock,
+    toggleNonStop
   ];
 
   const DEFAULT_STATE = {
@@ -36,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     autoSkip: true,
     blockBanners: true,
     bypassAntiAdblock: true,
+    nonStop: true,
     stats: {
       adsSkipped: 0,
       bannersBlocked: 0,
@@ -87,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleAutoSkip.checked = data.autoSkip !== false;
     toggleBlockBanners.checked = data.blockBanners !== false;
     toggleBypassAntiAdblock.checked = data.bypassAntiAdblock !== false;
+    toggleNonStop.checked = data.nonStop !== false;
 
     // Stats
     const stats = data.stats || { adsSkipped: 0, bannersBlocked: 0, timeSavedSeconds: 0 };
@@ -164,6 +168,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   toggleBypassAntiAdblock.addEventListener('change', (e) => {
     saveOption('bypassAntiAdblock', e.target.checked);
+  });
+
+  toggleNonStop.addEventListener('change', (e) => {
+    saveOption('nonStop', e.target.checked);
   });
 
   // Reset Stats Button

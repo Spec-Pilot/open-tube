@@ -9,6 +9,7 @@ const DEFAULT_CONFIG = {
   fastForward: true,
   blockBanners: true,
   bypassAntiAdblock: true,
+  nonStop: true,
   stats: {
     adsSkipped: 0,
     bannersBlocked: 0,

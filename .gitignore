@@ -18,3 +18,5 @@ scratch/
 *.tmp
 chrome-profile/
 test-profile/
+_metadata/
+
