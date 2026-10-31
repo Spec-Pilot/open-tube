@@ -168,9 +168,15 @@
     if (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting')) {
       return true;
     }
-    // Only check visible ad overlay in DOM (never check hidden .ytp-ad-text)
-    const overlay = document.querySelector('.ytp-ad-player-overlay, .ytp-ad-preview-container');
-    if (overlay && overlay.offsetParent !== null && overlay.getBoundingClientRect().height > 0) {
+    // Visible skip button or visible ad text in DOM
+    const skipBtn = document.querySelector(
+      '.ytp-ad-skip-button-modern, .ytp-ad-skip-button, .ytp-skip-ad-button, button.ytp-ad-skip-button-text'
+    );
+    if (skipBtn && (skipBtn.offsetParent !== null || skipBtn.getClientRects().length > 0)) {
+      return true;
+    }
+    const adText = document.querySelector('.ytp-ad-text');
+    if (adText && (adText.offsetParent !== null || adText.getClientRects().length > 0) && adText.textContent.trim().length > 0) {
       return true;
     }
     return false;
@@ -465,6 +471,19 @@
       userPaused = false;
       lastUserActionTime = 0;
       runEngine();
+
+      // Ensure next video in playlist or autoplay starts playing automatically
+      setTimeout(() => {
+        const v = document.querySelector('video.html5-main-video') || document.querySelector('video');
+        const p = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
+        if (v && v.paused && !userPaused && !isAdShowing(p)) {
+          if (p && typeof p.playVideo === 'function') {
+            p.playVideo();
+          } else {
+            v.play().catch(() => {});
+          }
+        }
+      }, 300);
     });
 
     window.addEventListener('spfdone', () => {
@@ -472,6 +491,18 @@
       userPaused = false;
       lastUserActionTime = 0;
       runEngine();
+
+      setTimeout(() => {
+        const v = document.querySelector('video.html5-main-video') || document.querySelector('video');
+        const p = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
+        if (v && v.paused && !userPaused && !isAdShowing(p)) {
+          if (p && typeof p.playVideo === 'function') {
+            p.playVideo();
+          } else {
+            v.play().catch(() => {});
+          }
+        }
+      }, 300);
     });
 
     // Hook video pause event directly to confirm user intentional pause

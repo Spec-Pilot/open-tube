@@ -29,7 +29,7 @@ html:not(.opentube-disabled) :is(
   #secondary-inner #companion,
   ytd-companion-ad-renderer,
 
-  /* In-Player Overlays, Ad Modules, & Skip Buttons */
+  /* In-Player Overlays & Popups (Non-breaking overlays only) */
   .ytp-ad-overlay-container,
   .ytp-ad-message-container,
   .ytp-ad-action-interstitial-background-container,
@@ -39,19 +39,6 @@ html:not(.opentube-disabled) :is(
   ytd-ad-hover-text-button-renderer,
   .annotation.annotation-type-custom,
   .ytp-ad-overlay-slot,
-  .ad-showing .ytp-ad-player-overlay,
-  .ad-interrupting .ytp-ad-player-overlay,
-  .ad-showing .ytp-ad-player-overlay-flyout-cta,
-  .ad-showing .ytp-ad-player-overlay-layout,
-  .ytp-ad-preview-container,
-  .ytp-ad-persistent-progress-bar-container,
-  .ytp-ad-progress-list,
-  .ytp-ad-player-overlay-skip-or-preview,
-  .ytp-ad-skip-button-container,
-  .ytp-ad-skip-button-modern,
-  .ytp-ad-skip-button,
-  .ytp-skip-ad-button,
-  button.ytp-ad-skip-button-text,
 
   /* Search Result Ads */
   ytd-promoted-sparkles-text-search-renderer,
