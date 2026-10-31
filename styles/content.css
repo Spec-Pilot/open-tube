@@ -46,6 +46,14 @@ html:not(.opentube-disabled) :is(
   ytd-reel-video-renderer:has(.ytd-ad-slot-renderer),
   ytd-reel-video-renderer:has([aria-label*="Sponsored"]),
 
+  /* Instantly hide video frames and overlays during ad playback so ads never flash on screen */
+  #movie_player.ad-showing video,
+  #movie_player.ad-interrupting video,
+  .html5-video-player.ad-showing video,
+  .html5-video-player.ad-interrupting video,
+  .ytp-ad-player-overlay,
+  .ytp-ad-player-overlay-layout,
+
   /* Anti-Adblock Popup & Modal Overlay */
   tp-yt-paper-dialog:has(ytd-enforcement-message-view-model),
   ytd-enforcement-message-view-model,

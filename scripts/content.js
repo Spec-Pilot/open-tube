@@ -43,6 +43,15 @@
     }
   }
 
+  // Sync configuration to inject.js running in MAIN world
+  function syncConfigToInject() {
+    const targetOrigin =
+      typeof window !== 'undefined' && window.location && typeof window.location.origin === 'string' && window.location.origin.startsWith('http')
+        ? window.location.origin
+        : '*';
+    window.postMessage({ type: 'OPENTUBE_CONFIG_UPDATE', config }, targetOrigin);
+  }
+
   // Load configuration from storage
   function loadConfig() {
     try {
@@ -60,6 +69,7 @@
                 nonStop: res.nonStop !== false
               };
               applyRootClasses();
+              syncConfigToInject();
             }
           }
         );
@@ -80,6 +90,7 @@
             }
           }
           applyRootClasses();
+          syncConfigToInject();
 
           // If toggled off while an ad was being fast-forwarded/muted, restore immediately
           if (!config.enabled && isAdActive) {
@@ -225,11 +236,8 @@
           if (video.playbackRate !== 16.0) {
             video.playbackRate = 16.0;
           }
-          // SAFETY GUARD: NEVER seek to duration if video.duration > 60!
-          // Real YouTube unskippable ads are strictly <= 15-30s. Seeking duration > 60
-          // skips legitimate content videos and causes an infinite playlist loop.
-          if (isFinite(video.duration) && video.duration > 0 && video.duration <= 60) {
-            video.currentTime = video.duration;
+          if (isFinite(video.duration) && video.duration > 0 && video.currentTime < video.duration - 0.1) {
+            video.currentTime = video.duration - 0.05;
           }
         } catch (err) {
           // Seeking guard

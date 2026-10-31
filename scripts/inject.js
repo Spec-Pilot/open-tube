@@ -247,7 +247,7 @@
         const reason = (response.playabilityStatus.reason || '').toLowerCase();
         const subreason = (response.playabilityStatus.messages?.[0] || '').toLowerCase();
 
-        if (status === 'UNPLAYABLE' || reason.includes('ad blocker') || subreason.includes('ad blocker')) {
+        if (reason.includes('ad blocker') || subreason.includes('ad blocker')) {
           response.playabilityStatus.status = 'OK';
           delete response.playabilityStatus.reason;
           delete response.playabilityStatus.messages;
@@ -451,10 +451,15 @@
           sendStat('ad', 1);
         }
 
+        const newHeaders = new Headers(response.headers);
+        newHeaders.delete('content-encoding');
+        newHeaders.delete('content-length');
+        newHeaders.set('content-type', 'application/json; charset=UTF-8');
+
         return new Response(JSON.stringify(data), {
           status: response.status,
           statusText: response.statusText,
-          headers: response.headers
+          headers: newHeaders
         });
       } catch (err) {
         return originalFetch.apply(this, arguments);
@@ -472,10 +477,15 @@
           sendStat('banner', Math.min(bannerCount, 5));
         }
 
+        const newHeaders = new Headers(response.headers);
+        newHeaders.delete('content-encoding');
+        newHeaders.delete('content-length');
+        newHeaders.set('content-type', 'application/json; charset=UTF-8');
+
         return new Response(JSON.stringify(data), {
           status: response.status,
           statusText: response.statusText,
-          headers: response.headers
+          headers: newHeaders
         });
       } catch (err) {
         return originalFetch.apply(this, arguments);
