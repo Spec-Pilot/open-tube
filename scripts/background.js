@@ -325,7 +325,7 @@ const RELEASES_API_URL = `https://api.github.com/repos/${GIT_REPO}/releases/late
 const REPO_ZIP_URL = `https://github.com/${GIT_REPO}/archive/refs/heads/main.zip`;
 
 async function checkForGitUpdates() {
-  const currentVersion = chrome.runtime.getManifest()?.version || '1.6';
+  const currentVersion = chrome.runtime.getManifest()?.version || '1.7';
   let remoteVersion = null;
   let downloadUrl = REPO_ZIP_URL;
   let releaseNotes = '';

@@ -718,8 +718,6 @@
 
     // 1. Click "Yes" / "Continue" on YouTube's inactivity confirmation dialog
     const confirmButtons = [
-      'ytd-enforcement-message-view-model #confirm-button button',
-      'ytd-enforcement-message-view-model button',
       'tp-yt-paper-dialog[opened] yt-confirm-dialog-renderer #confirm-button button',
       'tp-yt-paper-dialog.opened yt-confirm-dialog-renderer #confirm-button button',
       'tp-yt-paper-dialog[opened] #confirm-button button',
