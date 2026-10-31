@@ -20,6 +20,7 @@ Always run the test suite to verify changes before completing tasks:
 | Unit Tests | `node tests/test_inject.js` | Validates player sterilization, mock fetch, and pause protection |
 | Update Tests | `node tests/test_update.js` | Validates semver ordering and internet access toggle gate |
 | Security Audit | `node tests/test_security.js` | Validates isolation boundaries, sender auth, and sanitization |
+| Stats & Metrics | `node tests/test_stats.js` | Validates accuracy of ad, banner, and time-saved counters |
 | CDP E2E | `node tests/test_extension.js` | Automated Chrome DevTools Protocol verification with live profile |
 
 ## Core Coding Rules

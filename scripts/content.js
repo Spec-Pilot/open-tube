@@ -363,7 +363,6 @@
   /**
    * DOM Cleaner for Static and Feed Ads
    */
-  let cleanedElementsCount = 0;
   function cleanStaticAds() {
     if (!config.enabled || !config.blockBanners) return;
 
@@ -391,11 +390,7 @@
     }
 
     if (found > 0) {
-      cleanedElementsCount += found;
-      if (cleanedElementsCount >= 3) {
-        reportAdBlocked('banner', cleanedElementsCount);
-        cleanedElementsCount = 0;
-      }
+      reportAdBlocked('banner', found);
     }
   }
 

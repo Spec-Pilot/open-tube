@@ -94,6 +94,34 @@ function sanitizeFilename(name) {
   return base;
 }
 
+// Serialized queue for stats updates to eliminate async race conditions
+let pendingStatQueue = Promise.resolve();
+
+function queueStatIncrement(statType, count) {
+  pendingStatQueue = pendingStatQueue.then(() => {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['stats', 'enabled'], (res) => {
+        const stats = res.stats || { adsSkipped: 0, bannersBlocked: 0, timeSavedSeconds: 0 };
+
+        if (statType === 'ad') {
+          stats.adsSkipped += count;
+          stats.timeSavedSeconds += count * 15; // Estimate 15 seconds saved per skipped ad
+        } else if (statType === 'banner') {
+          stats.bannersBlocked += count;
+        } else if (statType === 'dialog') {
+          stats.adsSkipped += count;
+        }
+
+        chrome.storage.local.set({ stats }, () => {
+          updateBadge({ enabled: res.enabled !== false, stats });
+          resolve(stats);
+        });
+      });
+    });
+  });
+  return pendingStatQueue;
+}
+
 // Handle messages from content script & popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message !== 'object') return false;
@@ -104,22 +132,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const rawCount = parseInt(message.count, 10);
     const count = (!isNaN(rawCount) && rawCount > 0 && rawCount <= 10) ? rawCount : 1;
 
-    chrome.storage.local.get(['stats', 'enabled'], (res) => {
-      const stats = res.stats || { adsSkipped: 0, bannersBlocked: 0, timeSavedSeconds: 0 };
-
-      if (statType === 'ad') {
-        stats.adsSkipped += count;
-        stats.timeSavedSeconds += count * 15; // Estimate 15 seconds saved per skipped ad
-      } else if (statType === 'banner') {
-        stats.bannersBlocked += count;
-      } else if (statType === 'dialog') {
-        stats.adsSkipped += count;
-      }
-
-      chrome.storage.local.set({ stats }, () => {
-        updateBadge({ enabled: res.enabled !== false, stats });
-        sendResponse({ success: true, stats });
-      });
+    queueStatIncrement(statType, count).then((stats) => {
+      sendResponse({ success: true, stats });
     });
     return true; // Keep message channel open for async response
   }

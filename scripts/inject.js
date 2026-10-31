@@ -159,28 +159,50 @@
    * 1. PLAYER DATA STERILIZATION
    * Strips ad placements, ad slots, and ad break heartbeat parameters so YouTube player
    * initializes identical to YouTube Premium (zero ads scheduled).
+   * Returns true if ad placements/slots were detected and sterilized.
    */
   function cleanPlayerResponse(response) {
-    if (!response || typeof response !== 'object') return response;
+    if (!response || typeof response !== 'object') return false;
 
+    let hasAds = false;
     try {
       // Remove scheduled ad placements and slots
-      if (response.adPlacements) delete response.adPlacements;
-      if (response.adSlots) delete response.adSlots;
-      if (response.playerAds) delete response.playerAds;
-      if (response.adBreakHeartbeatParams) delete response.adBreakHeartbeatParams;
-      if (response.adSignalsInfo) delete response.adSignalsInfo;
-      if (response.paidContentOverlay) delete response.paidContentOverlay;
+      if (response.adPlacements) {
+        if (!Array.isArray(response.adPlacements) || response.adPlacements.length > 0) hasAds = true;
+        delete response.adPlacements;
+      }
+      if (response.adSlots) {
+        if (!Array.isArray(response.adSlots) || response.adSlots.length > 0) hasAds = true;
+        delete response.adSlots;
+      }
+      if (response.playerAds) {
+        if (!Array.isArray(response.playerAds) || response.playerAds.length > 0) hasAds = true;
+        delete response.playerAds;
+      }
+      if (response.adBreakHeartbeatParams) {
+        hasAds = true;
+        delete response.adBreakHeartbeatParams;
+      }
+      if (response.adSignalsInfo) {
+        delete response.adSignalsInfo;
+      }
+      if (response.paidContentOverlay) {
+        hasAds = true;
+        delete response.paidContentOverlay;
+      }
 
       // Handle nested player responses
       if (response.playerResponse && typeof response.playerResponse === 'object') {
-        cleanPlayerResponse(response.playerResponse);
+        if (cleanPlayerResponse(response.playerResponse)) {
+          hasAds = true;
+        }
       }
 
       // Bypass anti-adblock enforcement modal if present in player response
       if (response.auxiliaryUi && response.auxiliaryUi.messageRenderers) {
         if (response.auxiliaryUi.messageRenderers.enforcementMessageViewModel) {
           delete response.auxiliaryUi;
+          hasAds = true;
         }
       }
 
@@ -195,22 +217,25 @@
           delete response.playabilityStatus.reason;
           delete response.playabilityStatus.messages;
           delete response.playabilityStatus.errorScreen;
+          hasAds = true;
         }
       }
     } catch (err) {
       // Guard against object freeze or mutation errors
     }
 
-    return response;
+    return hasAds;
   }
 
   /**
    * 2. INITIAL DATA STERILIZATION
    * Strips feed ads, mastheads, and sponsored items from ytInitialData / /next API.
+   * Returns count of removed banner/feed ad renderers.
    */
   function cleanInitialData(data) {
-    if (!data || typeof data !== 'object') return data;
+    if (!data || typeof data !== 'object') return 0;
 
+    let removedCount = 0;
     try {
       const jsonStr = JSON.stringify(data);
       if (
@@ -234,6 +259,7 @@
                   item.statementBannerRenderer)
               ) {
                 obj.splice(i, 1);
+                removedCount++;
               } else {
                 removeAdKeys(item);
               }
@@ -246,6 +272,7 @@
                 key === 'promotedSparklesWebRenderer'
               ) {
                 delete obj[key];
+                removedCount++;
               } else {
                 removeAdKeys(obj[key]);
               }
@@ -256,7 +283,7 @@
       }
     } catch (err) { }
 
-    return data;
+    return removedCount;
   }
 
   /**
@@ -265,7 +292,9 @@
    */
   let _ytInitialPlayerResponse = window.ytInitialPlayerResponse;
   if (_ytInitialPlayerResponse) {
-    cleanPlayerResponse(_ytInitialPlayerResponse);
+    if (cleanPlayerResponse(_ytInitialPlayerResponse)) {
+      sendStat('ad', 1);
+    }
   }
 
   Object.defineProperty(window, 'ytInitialPlayerResponse', {
@@ -273,8 +302,10 @@
       return _ytInitialPlayerResponse;
     },
     set(val) {
-      _ytInitialPlayerResponse = cleanPlayerResponse(val);
-      sendStat('ad', 1);
+      _ytInitialPlayerResponse = val;
+      if (cleanPlayerResponse(_ytInitialPlayerResponse)) {
+        sendStat('ad', 1);
+      }
     },
     configurable: true,
     enumerable: true
@@ -282,7 +313,10 @@
 
   let _ytInitialData = window.ytInitialData;
   if (_ytInitialData) {
-    cleanInitialData(_ytInitialData);
+    const bannerCount = cleanInitialData(_ytInitialData);
+    if (bannerCount > 0) {
+      sendStat('banner', Math.min(bannerCount, 5));
+    }
   }
 
   Object.defineProperty(window, 'ytInitialData', {
@@ -290,7 +324,11 @@
       return _ytInitialData;
     },
     set(val) {
-      _ytInitialData = cleanInitialData(val);
+      _ytInitialData = val;
+      const bannerCount = cleanInitialData(_ytInitialData);
+      if (bannerCount > 0) {
+        sendStat('banner', Math.min(bannerCount, 5));
+      }
     },
     configurable: true,
     enumerable: true
@@ -368,9 +406,11 @@
         const response = await originalFetch.apply(this, arguments);
         const clone = response.clone();
         const data = await clone.json();
-        cleanPlayerResponse(data);
+        const hadAds = cleanPlayerResponse(data);
 
-        sendStat('ad', 1);
+        if (hadAds) {
+          sendStat('ad', 1);
+        }
 
         return new Response(JSON.stringify(data), {
           status: response.status,
@@ -388,7 +428,10 @@
         const response = await originalFetch.apply(this, arguments);
         const clone = response.clone();
         const data = await clone.json();
-        cleanInitialData(data);
+        const bannerCount = cleanInitialData(data);
+        if (bannerCount > 0) {
+          sendStat('banner', Math.min(bannerCount, 5));
+        }
 
         return new Response(JSON.stringify(data), {
           status: response.status,
@@ -443,11 +486,13 @@
         if (this.readyState === 4 && this.status === 200) {
           try {
             const data = JSON.parse(this.responseText);
-            cleanPlayerResponse(data);
+            const hadAds = cleanPlayerResponse(data);
             const cleanText = JSON.stringify(data);
             Object.defineProperty(this, 'responseText', { value: cleanText, writable: true });
             Object.defineProperty(this, 'response', { value: cleanText, writable: true });
-            sendStat('ad', 1);
+            if (hadAds) {
+              sendStat('ad', 1);
+            }
           } catch (e) { }
         }
       });
