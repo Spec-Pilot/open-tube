@@ -1,7 +1,7 @@
 /**
  * OpenTube AdShield - Content Script
  * High-performance ad skipper, player accelerator, anti-adblock bypass, and DOM cleaner.
- * Runs in isolated world: zero JS prototype tampering, zero detection surface.
+ * Faithful to the original v1.0 architecture: zero ad intrusion, clean DOM, natural user pause.
  */
 
 (function () {
@@ -26,7 +26,7 @@
   let observer = null;
   let checkTimer = null;
 
-  // Precise user pause intent tracking (Fixes the video unpausable bug)
+  // Track intentional user pause actions
   let userPaused = false;
   let lastUserActionTime = 0;
 
@@ -104,29 +104,32 @@
 
   // Track deliberate user pause actions vs automated script actions
   function registerUserGesture(e) {
-    if (!e || (e.isTrusted === false)) return; // Ignore synthetic script events
+    if (!e || e.isTrusted === false) return; // Ignore synthetic script events
 
-    const isKey = e.type === 'keydown' && (e.key === ' ' || e.key === 'k' || e.key === 'K' || e.code === 'Space' || e.key === 'MediaPlayPause');
+    const isKey =
+      e.type === 'keydown' &&
+      (e.key === ' ' || e.key === 'k' || e.key === 'K' || e.code === 'Space' || e.key === 'MediaPlayPause');
     const target = e.target;
-    const isPlayerClick = (e.type === 'click' || e.type === 'pointerdown' || e.type === 'mousedown') && target && (
-      target.closest?.('#movie_player') ||
-      target.closest?.('.html5-video-player') ||
-      target.closest?.('.html5-main-video') ||
-      target.closest?.('.ytp-play-button') ||
-      target.closest?.('button[aria-label*="Play" i]') ||
-      target.closest?.('button[aria-label*="Pause" i]') ||
-      target.tagName === 'VIDEO'
-    );
+    const isPlayerClick =
+      (e.type === 'click' || e.type === 'pointerdown' || e.type === 'mousedown') &&
+      target &&
+      (target.closest?.('#movie_player') ||
+        target.closest?.('.html5-video-player') ||
+        target.closest?.('.html5-main-video') ||
+        target.closest?.('.ytp-play-button') ||
+        target.closest?.('button[aria-label*="Play" i]') ||
+        target.closest?.('button[aria-label*="Pause" i]') ||
+        target.tagName === 'VIDEO');
 
     if (isKey || isPlayerClick) {
       lastUserActionTime = Date.now();
       const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
       if (video) {
         if (!video.paused) {
-          // Video was playing, user intended to pause!
+          // Video was playing, user intended to pause
           userPaused = true;
         } else {
-          // Video was paused, user intended to play!
+          // Video was paused, user intended to play
           userPaused = false;
         }
       }
@@ -168,22 +171,27 @@
     if (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting')) {
       return true;
     }
-    // Visible skip button or visible ad text in DOM
+    // Visible ad skip button
     const skipBtn = document.querySelector(
       '.ytp-ad-skip-button-modern, .ytp-ad-skip-button, .ytp-skip-ad-button, button.ytp-ad-skip-button-text'
     );
     if (skipBtn && (skipBtn.offsetParent !== null || skipBtn.getClientRects().length > 0)) {
       return true;
     }
+    // Visible ad text overlay
     const adText = document.querySelector('.ytp-ad-text');
-    if (adText && (adText.offsetParent !== null || adText.getClientRects().length > 0) && adText.textContent.trim().length > 0) {
+    if (
+      adText &&
+      (adText.offsetParent !== null || adText.getClientRects().length > 0) &&
+      adText.textContent.trim().length > 0
+    ) {
       return true;
     }
     return false;
   }
 
   /**
-   * Main Ad Skipped & Accelerator Logic
+   * Main Ad Skipper & Accelerator Logic
    */
   function handleVideoAds() {
     if (!config.enabled) return;
@@ -211,7 +219,7 @@
         }
       }
 
-      // Fast-forward video to end
+      // Fast-forward ad to end instantly
       if (config.fastForward) {
         try {
           if (video.playbackRate !== 16.0) {
@@ -255,8 +263,8 @@
         }
       }
 
-      // Ensure ad doesn't remain paused
-      if (video.paused) {
+      // Ensure ad doesn't remain stuck paused
+      if (video.paused && !userPaused) {
         video.play().catch(() => {});
       }
     } else {
@@ -329,14 +337,10 @@
 
   /**
    * Anti-Adblock Warning & Enforcement Dialog Dismissal
-   * Cleans up both enforcement modals and error-screen overlays.
    */
   function handleAntiAdblockBypass() {
     if (!config.enabled || !config.bypassAntiAdblock) return;
 
-    let recovered = false;
-
-    // 1. Detect and remove enforcement modal dialogs
     const dialog = document.querySelector(
       'tp-yt-paper-dialog:has(ytd-enforcement-message-view-model), ytd-enforcement-message-view-model, #dialog:has(ytd-enforcement-message-view-model)'
     );
@@ -345,33 +349,18 @@
     if (dialog) {
       dialog.remove();
       if (backdrop) backdrop.remove();
-      recovered = true;
-      reportAdBlocked('dialog', 1);
-    }
 
-    // 2. Clear playability error overlay and restore video player visibility
-    const errorScreen = document.querySelector('#error-screen:not([hidden]), yt-playability-error-supported-renderers:not([hidden])');
-    if (errorScreen) {
-      errorScreen.setAttribute('hidden', '');
-      errorScreen.style.display = 'none';
-      const playerContainer = document.querySelector('#player-container');
-      if (playerContainer) {
-        playerContainer.removeAttribute('hidden');
-        playerContainer.style.display = '';
-      }
-      recovered = true;
-      reportAdBlocked('dialog', 1);
-    }
-
-    // 3. Resume playback if error was cleared and user didn't deliberately pause
-    if (recovered && !userPaused) {
+      // Resume video only if user didn't intentionally pause
       const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
       const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
-      if (player && typeof player.playVideo === 'function') {
-        player.playVideo();
-      } else if (video && video.paused) {
-        video.play().catch(() => {});
+      if (video && video.paused && !userPaused) {
+        if (player && typeof player.playVideo === 'function') {
+          player.playVideo();
+        } else {
+          video.play().catch(() => {});
+        }
       }
+      reportAdBlocked('dialog', 1);
     }
   }
 
@@ -462,24 +451,6 @@
       attributeFilter: ['class', 'src']
     });
 
-    // Helper to ensure natural video playback without false pauses
-    function ensurePlayback() {
-      if (!config.enabled || userPaused) return;
-      const v = document.querySelector('video.html5-main-video') || document.querySelector('video');
-      const p = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
-      if (v && v.paused && !isAdShowing(p)) {
-        if (p && typeof p.playVideo === 'function') {
-          p.playVideo();
-        } else {
-          v.play().catch(() => {});
-        }
-      }
-    }
-
-    // Ensure initial playback when loading directly into a video
-    setTimeout(ensurePlayback, 300);
-    setTimeout(ensurePlayback, 800);
-
     // Reset state on YouTube navigation events (SPA)
     window.addEventListener('yt-navigate-start', () => {
       isAdActive = false;
@@ -502,10 +473,6 @@
       userPaused = false;
       lastUserActionTime = 0;
       runEngine();
-
-      // Ensure next video in playlist or autoplay starts playing automatically
-      setTimeout(ensurePlayback, 200);
-      setTimeout(ensurePlayback, 600);
     });
 
     window.addEventListener('spfdone', () => {
@@ -513,18 +480,6 @@
       userPaused = false;
       lastUserActionTime = 0;
       runEngine();
-
-      setTimeout(() => {
-        const v = document.querySelector('video.html5-main-video') || document.querySelector('video');
-        const p = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
-        if (v && v.paused && !userPaused && !isAdShowing(p)) {
-          if (p && typeof p.playVideo === 'function') {
-            p.playVideo();
-          } else {
-            v.play().catch(() => {});
-          }
-        }
-      }, 300);
     });
 
     // Hook video pause event directly to confirm user intentional pause
