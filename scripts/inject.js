@@ -108,10 +108,10 @@
       if (config.enabled && config.nonStop) {
         try {
           window._lact = Date.now();
-        } catch (e) {}
+        } catch (e) { }
       }
     }, 5000);
-  } catch (e) {}
+  } catch (e) { }
 
   // Prevent background tab throttling from pausing unattended music playback
   try {
@@ -132,7 +132,7 @@
       },
       true
     );
-  } catch (e) {}
+  } catch (e) { }
 
   // Hook HTMLMediaElement.prototype.pause to suppress unwanted script-induced pauses
   // (e.g. YouTube anti-adblock test pauses or autoplay inactivity pauses)
@@ -153,7 +153,7 @@
         return originalVideoPause.apply(this, arguments);
       };
     }
-  } catch (e) {}
+  } catch (e) { }
 
   /**
    * 1. PLAYER DATA STERILIZATION
@@ -254,7 +254,7 @@
         };
         removeAdKeys(data);
       }
-    } catch (err) {}
+    } catch (err) { }
 
     return data;
   }
@@ -306,7 +306,7 @@
             const parsed = JSON.parse(args.raw_player_response);
             cleanPlayerResponse(parsed);
             args.raw_player_response = JSON.stringify(parsed);
-          } catch (e) {}
+          } catch (e) { }
         } else if (typeof args.raw_player_response === 'object') {
           cleanPlayerResponse(args.raw_player_response);
         }
@@ -317,12 +317,12 @@
             const parsed = JSON.parse(args.player_response);
             cleanPlayerResponse(parsed);
             args.player_response = JSON.stringify(parsed);
-          } catch (e) {}
+          } catch (e) { }
         } else if (typeof args.player_response === 'object') {
           cleanPlayerResponse(args.player_response);
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   let _ytplayer = window.ytplayer;
@@ -448,7 +448,7 @@
             Object.defineProperty(this, 'responseText', { value: cleanText, writable: true });
             Object.defineProperty(this, 'response', { value: cleanText, writable: true });
             sendStat('ad', 1);
-          } catch (e) {}
+          } catch (e) { }
         }
       });
     }
@@ -480,7 +480,7 @@
       if (typeof player.skipAd === 'function') {
         try {
           player.skipAd();
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 2. Mute and jump to end to instantly clear unskippable ads
@@ -521,7 +521,7 @@
       if (typeof player.playVideo === 'function') {
         player.playVideo();
       } else if (video && video.paused) {
-        video.play().catch(() => {});
+        video.play().catch(() => { });
       }
     }
 
@@ -542,7 +542,7 @@
         if (typeof player.playVideo === 'function') {
           player.playVideo();
         } else {
-          video.play().catch(() => {});
+          video.play().catch(() => { });
         }
       }
     }
@@ -595,7 +595,7 @@
             if (player && typeof player.playVideo === 'function') {
               player.playVideo();
             } else {
-              video.play().catch(() => {});
+              video.play().catch(() => { });
             }
           }
         }
@@ -632,7 +632,7 @@
           btn.click();
           dismissed = true;
           break;
-        } catch (e) {}
+        } catch (e) { }
       }
     }
 
@@ -667,7 +667,7 @@
       if (typeof player?.playVideo === 'function') {
         player.playVideo();
       } else if (video && video.paused) {
-        video.play().catch(() => {});
+        video.play().catch(() => { });
       }
       sendStat('dialog', 1);
     }
