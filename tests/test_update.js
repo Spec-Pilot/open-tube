@@ -77,6 +77,20 @@ function runTests() {
   assert.ok(zipUrl.includes('Spec-Pilot/open-tube/archive/refs/heads/main.zip'), "Download zip URL must point to main branch archive");
   console.log("PASSED: Git download URL verified.");
 
+  // Test 7: Over-The-Air (OTA) Ad Rules Validation
+  console.log("\n[Test 7] Testing Over-The-Air (OTA) ad rules update validation...");
+  const fs = require('fs');
+  const path = require('path');
+  const rules = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'rules', 'rules.json'), 'utf8'));
+  assert.ok(Array.isArray(rules), "Rules must be an array");
+  assert.ok(rules.length >= 4, "Must contain at least 4 tracking network rules");
+  for (const rule of rules) {
+    assert.ok(typeof rule.id === 'number', "Each rule must have an integer ID");
+    assert.ok(rule.action && rule.action.type === 'block', "Each rule action must be block");
+    assert.ok(rule.condition && rule.condition.urlFilter, "Each rule must have a urlFilter");
+  }
+  console.log("PASSED: OTA rules schema and structure validated.");
+
   console.log("\n>>> ALL UPDATE & SEMVER TESTS PASSED SUCCESSFULLY! <<<\n");
 }
 

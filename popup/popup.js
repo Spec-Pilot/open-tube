@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const lblCheckUpdate = document.getElementById('lblCheckUpdate');
   const btnDownloadUpdate = document.getElementById('btnDownloadUpdate');
   const lblDownloadUpdate = document.getElementById('lblDownloadUpdate');
+  const btnUpdateRulesOta = document.getElementById('btnUpdateRulesOta');
+  const lblUpdateRulesOta = document.getElementById('lblUpdateRulesOta');
   const updateStatusText = document.getElementById('updateStatusText');
   const currentVersionBadge = document.getElementById('currentVersionBadge');
   const headerVersionBadge = document.getElementById('headerVersionBadge');
@@ -33,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const btnResetStats = document.getElementById('btnResetStats');
 
-  const CURRENT_VERSION = (typeof chrome !== 'undefined' && chrome.runtime?.getManifest?.()?.version) || '1.4';
+  const CURRENT_VERSION = (typeof chrome !== 'undefined' && chrome.runtime?.getManifest?.()?.version) || '1.5';
   if (currentVersionBadge) currentVersionBadge.textContent = `v${CURRENT_VERSION}`;
   if (headerVersionBadge) headerVersionBadge.textContent = `Shield v${CURRENT_VERSION}`;
 
@@ -216,13 +218,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (!allowed) {
         if (btnDownloadUpdate) btnDownloadUpdate.classList.add('hidden');
+        if (btnUpdateRulesOta) btnUpdateRulesOta.classList.add('hidden');
         if (updateStatusText) {
           updateStatusText.textContent = 'Turn on "Connect to Internet" to check for updates';
           updateStatusText.style.color = 'var(--text-muted)';
         }
       } else {
+        if (btnUpdateRulesOta) btnUpdateRulesOta.classList.remove('hidden');
         if (updateStatusText) {
-          updateStatusText.textContent = 'Ready to check for updates from Git.';
+          updateStatusText.textContent = 'Ready to check for updates or update ad rules.';
           updateStatusText.style.color = 'var(--accent-emerald)';
         }
       }
@@ -364,6 +368,41 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Instant OTA Rules Update Button
+  if (btnUpdateRulesOta) {
+    btnUpdateRulesOta.addEventListener('click', () => {
+      if (!toggleConnectInternet.checked) {
+        if (updateStatusText) {
+          updateStatusText.textContent = '⚠️ Enable "Connect to Internet" toggle first!';
+          updateStatusText.style.color = 'var(--accent-red)';
+        }
+        return;
+      }
+
+      btnUpdateRulesOta.disabled = true;
+      if (lblUpdateRulesOta) lblUpdateRulesOta.textContent = 'Updating...';
+      if (updateStatusText) {
+        updateStatusText.textContent = 'Fetching latest ad blocking rules from Git...';
+        updateStatusText.style.color = 'var(--text-secondary)';
+      }
+
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ action: 'UPDATE_PLUGIN_RULES_OTA' }, (res) => {
+          btnUpdateRulesOta.disabled = false;
+          if (lblUpdateRulesOta) lblUpdateRulesOta.textContent = 'Update Ad Rules (OTA)';
+          if (res && res.success) {
+            setUpdateStatus('⚡ Rules Updated: ', `${res.count} network ad rules`, ' active in real-time! No reload needed.', 'var(--accent-emerald)');
+          } else {
+            if (updateStatusText) {
+              updateStatusText.textContent = `❌ ${res?.error || 'Failed to update rules.'}`;
+              updateStatusText.style.color = 'var(--accent-red)';
+            }
+          }
+        });
+      }
+    });
+  }
+
   // Download Update Button
   if (btnDownloadUpdate) {
     btnDownloadUpdate.addEventListener('click', () => {
@@ -396,7 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chrome.runtime.lastError) {
               window.open(downloadUrl, '_blank');
             }
-            setUpdateStatus('📦 Downloaded! Extract zip into extension folder & reload at ', 'chrome://extensions', '', 'var(--accent-emerald)');
+            setUpdateStatus('📦 Downloaded! Or double-click update.bat in extension folder to update in-place.', '', '', 'var(--accent-emerald)');
           }
         );
       } else if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
@@ -404,11 +443,11 @@ document.addEventListener('DOMContentLoaded', () => {
           if (res?.fallbackUrl) {
             window.open(res.fallbackUrl, '_blank');
           }
-          setUpdateStatus('📦 Downloaded! Extract zip into extension folder & reload at ', 'chrome://extensions', '', 'var(--accent-emerald)');
+          setUpdateStatus('📦 Downloaded! Or double-click update.bat in extension folder to update in-place.', '', '', 'var(--accent-emerald)');
         });
       } else {
         window.open(downloadUrl, '_blank');
-        setUpdateStatus('📦 Download started! Extract zip into extension folder & reload at ', 'chrome://extensions', '', 'var(--accent-emerald)');
+        setUpdateStatus('📦 Download started! Or double-click update.bat in extension folder to update in-place.', '', '', 'var(--accent-emerald)');
       }
     });
   }

@@ -401,6 +401,19 @@ input:checked + .slider:before {
   color: #fff;
 }
 
+.btn-rules {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(235, 30, 60, 0.2) 100%);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+}
+
+.btn-rules:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.3) 0%, rgba(235, 30, 60, 0.3) 100%);
+  border-color: #f59e0b;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
+  color: #fff;
+}
+
 .update-status {
   font-size: 10px;
   color: var(--text-muted);

@@ -225,6 +225,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (message.action === 'UPDATE_PLUGIN_RULES_OTA') {
+    if (!isInternalExtensionSender(sender)) {
+      sendResponse({ error: 'Unauthorized: UPDATE_PLUGIN_RULES_OTA is only allowed from the extension UI.' });
+      return false;
+    }
+    chrome.storage.local.get(['connectInternet'], async (res) => {
+      if (!res.connectInternet) {
+        sendResponse({ error: 'Connect to Internet is disabled. Enable it first to update ad rules.' });
+        return;
+      }
+
+      try {
+        const rulesUrl = `https://raw.githubusercontent.com/${GIT_REPO}/main/rules/rules.json`;
+        const resp = await fetch(rulesUrl);
+        if (!resp.ok) {
+          throw new Error(`Failed to fetch rules from GitHub (${resp.status})`);
+        }
+        const rules = await resp.json();
+        if (!Array.isArray(rules)) {
+          throw new Error('Invalid rules format received from repository.');
+        }
+
+        // Apply rules dynamically to Chrome's DeclarativeNetRequest engine
+        if (typeof chrome !== 'undefined' && chrome.declarativeNetRequest && chrome.declarativeNetRequest.updateDynamicRules) {
+          const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
+          const removeRuleIds = existingRules.map(r => r.id);
+          await chrome.declarativeNetRequest.updateDynamicRules({
+            removeRuleIds: removeRuleIds,
+            addRules: rules
+          });
+        }
+
+        // Save rules count and update timestamp in local storage
+        await new Promise((resolve) => {
+          chrome.storage.local.set({
+            rulesLastUpdated: Date.now(),
+            rulesCount: rules.length
+          }, resolve);
+        });
+
+        sendResponse({ success: true, count: rules.length });
+      } catch (err) {
+        sendResponse({ error: err.message || 'Failed to update rules.' });
+      }
+    });
+    return true;
+  }
 });
 
 // Semantic version helper to ensure versions are compared in strictly correct numerical order
@@ -253,7 +301,7 @@ const RELEASES_API_URL = `https://api.github.com/repos/${GIT_REPO}/releases/late
 const REPO_ZIP_URL = `https://github.com/${GIT_REPO}/archive/refs/heads/main.zip`;
 
 async function checkForGitUpdates() {
-  const currentVersion = chrome.runtime.getManifest()?.version || '1.4';
+  const currentVersion = chrome.runtime.getManifest()?.version || '1.5';
   let remoteVersion = null;
   let downloadUrl = REPO_ZIP_URL;
   let releaseNotes = '';
