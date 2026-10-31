@@ -11,9 +11,9 @@
   ],
   "host_permissions": [
     "*://*.youtube.com/*",
-    "https://raw.githubusercontent.com/*",
-    "https://api.github.com/*",
-    "https://github.com/*"
+    "https://raw.githubusercontent.com/Spec-Pilot/open-tube/*",
+    "https://api.github.com/repos/Spec-Pilot/open-tube/*",
+    "https://github.com/Spec-Pilot/open-tube/*"
   ],
   "declarative_net_request": {
     "rule_resources": [
@@ -51,16 +51,6 @@
       ],
       "run_at": "document_start",
       "all_frames": false
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "scripts/inject.js"
-      ],
-      "matches": [
-        "*://*.youtube.com/*"
-      ]
     }
   ],
   "action": {

@@ -19,11 +19,25 @@
     autoSkip: true
   };
 
-  // Listen for config sync from content script
+  // Safe sender for stat reporting
+  function sendStat(statType, count = 1) {
+    const targetOrigin =
+      typeof window !== 'undefined' && window.location && typeof window.location.origin === 'string' && window.location.origin.startsWith('http')
+        ? window.location.origin
+        : '*';
+    window.postMessage({ type: 'OPENTUBE_STAT', statType, count }, targetOrigin);
+  }
+
+  // Listen for config sync from content script with strict whitelist and type checking
   window.addEventListener('message', (event) => {
     if (event.source !== window || !event.data) return;
-    if (event.data.type === 'OPENTUBE_CONFIG_UPDATE' && event.data.config) {
-      config = { ...config, ...event.data.config };
+    if (event.data.type === 'OPENTUBE_CONFIG_UPDATE' && event.data.config && typeof event.data.config === 'object') {
+      const allowedKeys = ['enabled', 'nonStop', 'bypassAntiAdblock', 'fastForward', 'autoSkip', 'blockBanners'];
+      for (const key of allowedKeys) {
+        if (typeof event.data.config[key] === 'boolean') {
+          config[key] = event.data.config[key];
+        }
+      }
     }
   });
 
@@ -260,7 +274,7 @@
     },
     set(val) {
       _ytInitialPlayerResponse = cleanPlayerResponse(val);
-      window.postMessage({ type: 'OPENTUBE_STAT', statType: 'ad', count: 1 }, '*');
+      sendStat('ad', 1);
     },
     configurable: true,
     enumerable: true
@@ -356,7 +370,7 @@
         const data = await clone.json();
         cleanPlayerResponse(data);
 
-        window.postMessage({ type: 'OPENTUBE_STAT', statType: 'ad', count: 1 }, '*');
+        sendStat('ad', 1);
 
         return new Response(JSON.stringify(data), {
           status: response.status,
@@ -433,7 +447,7 @@
             const cleanText = JSON.stringify(data);
             Object.defineProperty(this, 'responseText', { value: cleanText, writable: true });
             Object.defineProperty(this, 'response', { value: cleanText, writable: true });
-            window.postMessage({ type: 'OPENTUBE_STAT', statType: 'ad', count: 1 }, '*');
+            sendStat('ad', 1);
           } catch (e) {}
         }
       });
@@ -500,7 +514,7 @@
       const now = Date.now();
       if (now - lastAdSkippedTime > 1500) {
         lastAdSkippedTime = now;
-        window.postMessage({ type: 'OPENTUBE_STAT', statType: 'ad', count: 1 }, '*');
+        sendStat('ad', 1);
       }
 
       // Force resume video if YouTube paused it
@@ -655,7 +669,7 @@
       } else if (video && video.paused) {
         video.play().catch(() => {});
       }
-      window.postMessage({ type: 'OPENTUBE_STAT', statType: 'dialog', count: 1 }, '*');
+      sendStat('dialog', 1);
     }
   }
 

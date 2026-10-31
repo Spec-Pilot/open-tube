@@ -342,7 +342,7 @@ async function run() {
     returnByValue: true
   });
 
-  console.log("Inject Script Simulation Results:", injectSimResult.result.value);
+  console.log("Inject Script Simulation Results:", injectSimResult.result?.value);
 
   ytClient.close();
   cleanup();

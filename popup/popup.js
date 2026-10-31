@@ -251,6 +251,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let latestUpdateData = null;
 
+  // Safe status message renderer without innerHTML to prevent DOM XSS
+  function setUpdateStatus(prefix, boldText, suffix, color) {
+    if (!updateStatusText) return;
+    updateStatusText.textContent = '';
+    if (prefix) {
+      updateStatusText.appendChild(document.createTextNode(prefix));
+    }
+    if (boldText) {
+      const strong = document.createElement('strong');
+      strong.textContent = boldText;
+      updateStatusText.appendChild(strong);
+    }
+    if (suffix) {
+      updateStatusText.appendChild(document.createTextNode(suffix));
+    }
+    if (color) {
+      updateStatusText.style.color = color;
+    }
+  }
+
   function handleUpdateCheckResult(res) {
     if (btnCheckUpdate) {
       btnCheckUpdate.disabled = !toggleConnectInternet.checked;
@@ -270,10 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
     latestUpdateData = res;
 
     if (res.hasUpdate) {
-      if (updateStatusText) {
-        updateStatusText.innerHTML = `✨ Update found: <strong>v${res.latestVersion}</strong> (current: v${res.currentVersion})`;
-        updateStatusText.style.color = 'var(--accent-emerald)';
-      }
+      setUpdateStatus('✨ Update found: ', `v${res.latestVersion}`, ` (current: v${res.currentVersion})`, 'var(--accent-emerald)');
       if (lblDownloadUpdate) {
         lblDownloadUpdate.textContent = `Download v${res.latestVersion} (Git)`;
       }
@@ -379,10 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chrome.runtime.lastError) {
               window.open(downloadUrl, '_blank');
             }
-            if (updateStatusText) {
-              updateStatusText.innerHTML = `📦 Downloaded! Extract zip into extension folder & reload at <strong>chrome://extensions</strong>`;
-              updateStatusText.style.color = 'var(--accent-emerald)';
-            }
+            setUpdateStatus('📦 Downloaded! Extract zip into extension folder & reload at ', 'chrome://extensions', '', 'var(--accent-emerald)');
           }
         );
       } else if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
@@ -390,17 +404,11 @@ document.addEventListener('DOMContentLoaded', () => {
           if (res?.fallbackUrl) {
             window.open(res.fallbackUrl, '_blank');
           }
-          if (updateStatusText) {
-            updateStatusText.innerHTML = `📦 Downloaded! Extract zip into extension folder & reload at <strong>chrome://extensions</strong>`;
-            updateStatusText.style.color = 'var(--accent-emerald)';
-          }
+          setUpdateStatus('📦 Downloaded! Extract zip into extension folder & reload at ', 'chrome://extensions', '', 'var(--accent-emerald)');
         });
       } else {
         window.open(downloadUrl, '_blank');
-        if (updateStatusText) {
-          updateStatusText.innerHTML = `📦 Download started! Extract zip into extension folder & reload at <strong>chrome://extensions</strong>`;
-          updateStatusText.style.color = 'var(--accent-emerald)';
-        }
+        setUpdateStatus('📦 Download started! Extract zip into extension folder & reload at ', 'chrome://extensions', '', 'var(--accent-emerald)');
       }
     });
   }

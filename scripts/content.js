@@ -30,22 +30,11 @@
 
   // Sync configuration to inject.js running in MAIN world
   function syncConfigToInject() {
-    window.postMessage({ type: 'OPENTUBE_CONFIG_UPDATE', config }, '*');
-  }
-
-  // Fallback injection of MAIN world script in case browser doesn't execute manifest world: "MAIN"
-  try {
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) {
-      const script = document.createElement('script');
-      script.src = chrome.runtime.getURL('scripts/inject.js');
-      script.onload = () => {
-        script.remove();
-        syncConfigToInject();
-      };
-      (document.head || document.documentElement).appendChild(script);
-    }
-  } catch (e) {
-    // Ignore fallback errors
+    const targetOrigin =
+      typeof window !== 'undefined' && window.location && typeof window.location.origin === 'string' && window.location.origin.startsWith('http')
+        ? window.location.origin
+        : '*';
+    window.postMessage({ type: 'OPENTUBE_CONFIG_UPDATE', config }, targetOrigin);
   }
 
   // Load configuration from storage
@@ -148,7 +137,11 @@
   window.addEventListener('message', (event) => {
     if (event.source !== window || !event.data) return;
     if (event.data.type === 'OPENTUBE_STAT') {
-      reportAdBlocked(event.data.statType || 'ad', event.data.count || 1);
+      const validTypes = ['ad', 'banner', 'dialog'];
+      const statType = validTypes.includes(event.data.statType) ? event.data.statType : 'ad';
+      const rawCount = parseInt(event.data.count, 10);
+      const count = (!isNaN(rawCount) && rawCount > 0 && rawCount <= 10) ? rawCount : 1;
+      reportAdBlocked(statType, count);
     }
   });
 

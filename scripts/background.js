@@ -53,19 +53,66 @@ function updateBadge(data) {
   chrome.action.setBadgeBackgroundColor({ color: '#10b981' }); // Vibrant emerald green
 }
 
+// Security helper: verify if message sender is the extension's own popup/background UI (not a web tab or content script)
+function isInternalExtensionSender(sender) {
+  if (!sender) return false;
+  // sender.tab is always defined when sent from a content script running in a web page
+  if (sender.tab) return false;
+  // sender.id must match this extension's runtime ID
+  if (typeof chrome !== 'undefined' && chrome.runtime && sender.id !== chrome.runtime.id) return false;
+  // sender.url must start with our extension origin
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) {
+    const extensionOrigin = chrome.runtime.getURL('');
+    if (typeof sender.url !== 'string' || !sender.url.startsWith(extensionOrigin)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Security helper: validate download URL to ensure it only targets trusted repository sources
+function isTrustedDownloadUrl(url) {
+  if (typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    if (parsed.hostname === 'github.com' && parsed.pathname.startsWith('/Spec-Pilot/open-tube/')) return true;
+    if (parsed.hostname === 'api.github.com' && parsed.pathname.startsWith('/repos/Spec-Pilot/open-tube/')) return true;
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Security helper: sanitize filename to prevent directory traversal or invalid extensions
+function sanitizeFilename(name) {
+  if (typeof name !== 'string') return 'open-tube-latest.zip';
+  const base = name.replace(/^.*[\\\/]/, '').replace(/[^a-zA-Z0-9._-]/g, '');
+  if (!base.endsWith('.zip')) {
+    return 'open-tube-latest.zip';
+  }
+  return base;
+}
+
 // Handle messages from content script & popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!message || typeof message !== 'object') return false;
+
   if (message.action === 'STAT_INCREMENT') {
+    const validTypes = ['ad', 'banner', 'dialog'];
+    const statType = validTypes.includes(message.statType) ? message.statType : 'ad';
+    const rawCount = parseInt(message.count, 10);
+    const count = (!isNaN(rawCount) && rawCount > 0 && rawCount <= 10) ? rawCount : 1;
+
     chrome.storage.local.get(['stats', 'enabled'], (res) => {
       const stats = res.stats || { adsSkipped: 0, bannersBlocked: 0, timeSavedSeconds: 0 };
-      const count = message.count || 1;
 
-      if (message.statType === 'ad') {
+      if (statType === 'ad') {
         stats.adsSkipped += count;
         stats.timeSavedSeconds += count * 15; // Estimate 15 seconds saved per skipped ad
-      } else if (message.statType === 'banner') {
+      } else if (statType === 'banner') {
         stats.bannersBlocked += count;
-      } else if (message.statType === 'dialog') {
+      } else if (statType === 'dialog') {
         stats.adsSkipped += count;
       }
 
@@ -85,6 +132,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'RESET_STATS') {
+    if (!isInternalExtensionSender(sender)) {
+      sendResponse({ error: 'Unauthorized: RESET_STATS is only allowed from the extension UI.' });
+      return false;
+    }
     const freshStats = { adsSkipped: 0, bannersBlocked: 0, timeSavedSeconds: 0 };
     chrome.storage.local.set({ stats: freshStats }, () => {
       chrome.storage.local.get(['enabled'], (res) => {
@@ -96,12 +147,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'CONFIG_CHANGED') {
+    if (!isInternalExtensionSender(sender)) {
+      return false;
+    }
     chrome.storage.local.get(null, (allData) => {
       updateBadge(allData);
     });
   }
 
   if (message.action === 'CHECK_GIT_UPDATES') {
+    if (!isInternalExtensionSender(sender)) {
+      sendResponse({ error: 'Unauthorized: CHECK_GIT_UPDATES is only allowed from the extension UI.' });
+      return false;
+    }
     chrome.storage.local.get(['connectInternet'], async (res) => {
       if (!res.connectInternet) {
         sendResponse({ error: 'Connect to Internet is disabled. Enable it first to check for updates.' });
@@ -118,14 +176,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'DOWNLOAD_GIT_UPDATE') {
+    if (!isInternalExtensionSender(sender)) {
+      sendResponse({ error: 'Unauthorized: DOWNLOAD_GIT_UPDATE is only allowed from the extension UI.' });
+      return false;
+    }
     chrome.storage.local.get(['connectInternet'], (res) => {
       if (!res.connectInternet) {
         sendResponse({ error: 'Connect to Internet is disabled. Enable it first to download updates.' });
         return;
       }
 
-      const downloadUrl = message.downloadUrl || REPO_ZIP_URL;
-      const filename = message.filename || 'open-tube-latest.zip';
+      const rawUrl = message.downloadUrl;
+      const downloadUrl = isTrustedDownloadUrl(rawUrl) ? rawUrl : REPO_ZIP_URL;
+      const filename = sanitizeFilename(message.filename);
 
       if (typeof chrome.downloads !== 'undefined' && chrome.downloads.download) {
         chrome.downloads.download(
