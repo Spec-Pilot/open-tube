@@ -33,9 +33,18 @@
     if (event.source !== window || !event.data) return;
     if (event.data.type === 'OPENTUBE_CONFIG_UPDATE' && event.data.config && typeof event.data.config === 'object') {
       const allowedKeys = ['enabled', 'nonStop', 'bypassAntiAdblock', 'fastForward', 'autoSkip', 'blockBanners'];
+      const prevEnabled = config.enabled;
       for (const key of allowedKeys) {
         if (typeof event.data.config[key] === 'boolean') {
           config[key] = event.data.config[key];
+        }
+      }
+
+      // If toggled off while video was fast-forwarding, restore playback rate immediately
+      if (prevEnabled && !config.enabled) {
+        const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
+        if (video && video.playbackRate === 16.0) {
+          video.playbackRate = 1.0;
         }
       }
     }
@@ -130,12 +139,21 @@
 
   // Prevent background tab throttling from pausing unattended music playback
   try {
+    const originalHidden = Object.getOwnPropertyDescriptor(Document.prototype, 'hidden')?.get;
+    const originalVisState = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState')?.get;
+
     Object.defineProperty(document, 'hidden', {
-      get: () => false,
+      get: () => {
+        if (config.enabled && config.nonStop) return false;
+        return originalHidden ? originalHidden.call(document) : false;
+      },
       configurable: true
     });
     Object.defineProperty(document, 'visibilityState', {
-      get: () => 'visible',
+      get: () => {
+        if (config.enabled && config.nonStop) return 'visible';
+        return originalVisState ? originalVisState.call(document) : 'visible';
+      },
       configurable: true
     });
     window.addEventListener(
@@ -182,7 +200,7 @@
    * Returns true if ad placements/slots were detected and sterilized.
    */
   function cleanPlayerResponse(response) {
-    if (!response || typeof response !== 'object') return false;
+    if (!config.enabled || !response || typeof response !== 'object') return false;
 
     let hasAds = false;
     try {
@@ -250,7 +268,7 @@
    * Returns count of removed banner/feed ad renderers.
    */
   function cleanInitialData(data) {
-    if (!data || typeof data !== 'object') return 0;
+    if (!config.enabled || !data || typeof data !== 'object') return 0;
 
     let removedCount = 0;
     try {
@@ -353,7 +371,7 @@
 
   // Hook ytplayer config args if set
   function sanitizePlayerArgs(args) {
-    if (!args || typeof args !== 'object') return;
+    if (!config.enabled || !args || typeof args !== 'object') return;
     try {
       if (args.raw_player_response) {
         if (typeof args.raw_player_response === 'string') {
@@ -402,6 +420,10 @@
    */
   const originalFetch = window.fetch;
   window.fetch = async function (input, init) {
+    if (!config.enabled) {
+      return originalFetch.apply(this, arguments);
+    }
+
     const url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
 
     // Fake success for YouTube ad tracking and stats so YouTube never detects blocked requests
@@ -476,6 +498,10 @@
   };
 
   XMLHttpRequest.prototype.send = function (body) {
+    if (!config.enabled) {
+      return originalXHRSend.apply(this, arguments);
+    }
+
     // Return dummy 200 OK for tracking endpoints
     if (
       this._otUrl &&
@@ -525,6 +551,8 @@
    */
   let lastAdSkippedTime = 0;
   function neutralizePlayerAd() {
+    if (!config.enabled) return;
+
     const player = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
     const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
 
@@ -539,7 +567,7 @@
 
     if (isAdPlaying) {
       // 1. Instantly trigger YouTube's native skipAd() method
-      if (typeof player.skipAd === 'function') {
+      if (config.autoSkip && typeof player.skipAd === 'function') {
         try {
           player.skipAd();
         } catch (e) { }
@@ -549,7 +577,7 @@
       // SAFETY GUARD: NEVER seek currentTime to duration if video.duration > 60!
       // Real YouTube ads are max 15-30s. Legitimate music videos and content are minutes long.
       // Fast-forwarding or seeking duration > 60 skips the user's actual video and causes playlist skip loops.
-      if (video) {
+      if (video && config.fastForward) {
         video.muted = true;
         if (isFinite(video.duration) && video.duration > 0 && video.duration <= 60) {
           video.currentTime = video.duration;
@@ -560,18 +588,20 @@
       }
 
       // 3. Immediately click any skip button in DOM
-      const skipButtons = [
-        '.ytp-ad-skip-button-modern',
-        '.ytp-ad-skip-button',
-        '.ytp-skip-ad-button',
-        'button.ytp-ad-skip-button-text',
-        '.ytp-ad-overlay-close-button'
-      ];
-      for (const sel of skipButtons) {
-        const btn = document.querySelector(sel);
-        if (btn) {
-          btn.click();
-          break;
+      if (config.autoSkip) {
+        const skipButtons = [
+          '.ytp-ad-skip-button-modern',
+          '.ytp-ad-skip-button',
+          '.ytp-skip-ad-button',
+          'button.ytp-ad-skip-button-text',
+          '.ytp-ad-overlay-close-button'
+        ];
+        for (const sel of skipButtons) {
+          const btn = document.querySelector(sel);
+          if (btn) {
+            btn.click();
+            break;
+          }
         }
       }
 
@@ -684,6 +714,8 @@
    * Dismisses both anti-adblock enforcement messages and "Video paused. Continue watching?" popups.
    */
   function dismissAllConfirmationDialogs() {
+    if (!config.enabled || !config.bypassAntiAdblock) return;
+
     // 1. Click "Yes" / "Continue" on YouTube's inactivity confirmation dialog
     const confirmButtons = [
       'ytd-enforcement-message-view-model #confirm-button button',

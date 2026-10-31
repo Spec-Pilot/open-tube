@@ -27,9 +27,32 @@ chrome.runtime.onInstalled.addListener((details) => {
     }
     chrome.storage.local.set(updated, () => {
       updateBadge(updated);
+      updateDNRRuleset(updated.enabled !== false);
     });
   });
 });
+
+// Synchronize DeclarativeNetRequest network rulesets with plugin enable state
+function updateDNRRuleset(enabled) {
+  if (typeof chrome !== 'undefined' && chrome.declarativeNetRequest && chrome.declarativeNetRequest.updateEnabledRulesets) {
+    const isEnabled = enabled !== false;
+    chrome.declarativeNetRequest.updateEnabledRulesets({
+      [isEnabled ? 'enableRulesetIds' : 'disableRulesetIds']: ['ruleset_1']
+    }).catch(() => { });
+  }
+}
+
+// Listen for storage changes to keep DNR ruleset and badge in sync
+if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.enabled) {
+      updateDNRRuleset(changes.enabled.newValue !== false);
+      chrome.storage.local.get(null, (allData) => {
+        updateBadge(allData);
+      });
+    }
+  });
+}
 
 // Update extension action badge
 function updateBadge(data) {
@@ -166,6 +189,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     chrome.storage.local.get(null, (allData) => {
       updateBadge(allData);
+      updateDNRRuleset(allData?.enabled !== false);
     });
   }
 
@@ -301,7 +325,7 @@ const RELEASES_API_URL = `https://api.github.com/repos/${GIT_REPO}/releases/late
 const REPO_ZIP_URL = `https://github.com/${GIT_REPO}/archive/refs/heads/main.zip`;
 
 async function checkForGitUpdates() {
-  const currentVersion = chrome.runtime.getManifest()?.version || '1.5';
+  const currentVersion = chrome.runtime.getManifest()?.version || '1.6';
   let remoteVersion = null;
   let downloadUrl = REPO_ZIP_URL;
   let releaseNotes = '';

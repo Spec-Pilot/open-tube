@@ -362,6 +362,55 @@ async function runTests() {
   assert.strictEqual(testVideo.paused, false, "Autoplay to next video must reset intentional pause and block auto-pauses");
   console.log("PASSED: Autoplay navigation reset verified, continuous playback ensured.");
 
+  // Test 10: Master Enable/Disable Toggle
+  console.log("\n[Test 10] Testing Master Toggle (enabled: false deactivates all interception)...");
+  const env6 = createMockEnvironment();
+  let fetchPassedThrough = false;
+  env6.window.fetch = async function(url, options) {
+    fetchPassedThrough = true;
+    return new env6.window.Response(JSON.stringify({
+      playabilityStatus: { status: 'OK' },
+      adPlacements: [{ id: 'ad-unmodified' }]
+    }));
+  };
+
+  runInEnv(env6);
+
+  // Send config update setting enabled: false
+  env6.window.dispatchEvent({
+    type: 'message',
+    source: env6.window,
+    data: {
+      type: 'OPENTUBE_CONFIG_UPDATE',
+      config: { enabled: false }
+    }
+  });
+
+  // Verify player response setter does NOT clean ads when disabled
+  env6.window.ytInitialPlayerResponse = {
+    playabilityStatus: { status: 'OK' },
+    adPlacements: [{ id: 'ad-kept' }],
+    playerAds: [{ id: 'ad-kept-2' }]
+  };
+  assert.ok(env6.window.ytInitialPlayerResponse.adPlacements, "adPlacements must NOT be removed when disabled");
+  assert.strictEqual(env6.window.ytInitialPlayerResponse.adPlacements.length, 1);
+
+  // Verify fetch passes directly to originalFetch without sterilizing ads
+  const passRes = await env6.window.fetch('https://www.youtube.com/youtubei/v1/player?key=123');
+  const passJson = await passRes.json();
+  assert.strictEqual(fetchPassedThrough, true, "Original fetch must be invoked");
+  assert.ok(passJson.adPlacements, "adPlacements must NOT be stripped by fetch when disabled");
+
+  // Verify media pause is NOT suppressed when disabled
+  const disabledVideo = new env6.HTMLMediaElement();
+  disabledVideo.tagName = 'VIDEO';
+  disabledVideo.paused = false;
+  disabledVideo.ended = false;
+  disabledVideo.pause();
+  assert.strictEqual(disabledVideo.paused, true, "Media pause must NOT be suppressed when extension is disabled");
+
+  console.log("PASSED: Master toggle cleanly deactivates all player, fetch, and pause interception.");
+
   console.log("\n>>> ALL INJECT.JS TESTS PASSED SUCCESSFULLY! <<<\n");
 }
 

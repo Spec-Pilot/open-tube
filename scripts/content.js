@@ -28,6 +28,19 @@
   let lastUserActionTime = 0;
   let lastPauseTime = 0;
 
+  // Apply or remove root class on <html> to dynamically activate/deactivate cosmetic CSS filters
+  function applyRootClasses() {
+    const root = document.documentElement;
+    if (!root) return;
+    if (config.enabled) {
+      root.classList.remove('opentube-disabled');
+      root.classList.add('opentube-enabled');
+    } else {
+      root.classList.remove('opentube-enabled');
+      root.classList.add('opentube-disabled');
+    }
+  }
+
   // Sync configuration to inject.js running in MAIN world
   function syncConfigToInject() {
     const targetOrigin =
@@ -53,6 +66,7 @@
                 bypassAntiAdblock: res.bypassAntiAdblock !== false,
                 nonStop: res.nonStop !== false
               };
+              applyRootClasses();
               syncConfigToInject();
             }
           }
@@ -73,7 +87,23 @@
               config[key] = changes[key].newValue;
             }
           }
+          applyRootClasses();
           syncConfigToInject();
+
+          // If toggled off while an ad was being fast-forwarded/muted, restore immediately
+          if (!config.enabled && isAdActive) {
+            isAdActive = false;
+            const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
+            if (video) {
+              if (video.playbackRate === 16.0) {
+                video.playbackRate = normalPlaybackRate || 1.0;
+              }
+              if (mutedByExtension) {
+                video.muted = false;
+                mutedByExtension = false;
+              }
+            }
+          }
         }
       });
     }
@@ -410,6 +440,7 @@
    * Unified Engine Loop
    */
   function runEngine() {
+    if (!config.enabled) return;
     handleVideoAds();
     handleShortsAds();
     handleAntiAdblockBypass();
@@ -420,6 +451,7 @@
   // Setup interval loop (50ms)
   function initEngine() {
     loadConfig();
+    applyRootClasses();
 
     if (checkTimer) clearInterval(checkTimer);
     checkTimer = setInterval(runEngine, 50);
