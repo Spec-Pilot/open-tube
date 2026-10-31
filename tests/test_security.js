@@ -114,7 +114,7 @@ function runSecurityTests() {
 
   // Test Filename sanitization
   assert.strictEqual(sanitizeFilename('../../../evil.exe'), 'open-tube-latest.zip', "Path traversal & .exe must be neutralized to safe zip");
-  assert.strictEqual(sanitizeFilename('open-tube-v1.2.1.zip'), 'open-tube-v1.2.1.zip', "Clean zip filename must be preserved");
+  assert.strictEqual(sanitizeFilename('open-tube-v1.3.zip'), 'open-tube-v1.3.zip', "Clean zip filename must be preserved");
   assert.strictEqual(sanitizeFilename('exploit.bat'), 'open-tube-latest.zip', "Non-zip extension must default to open-tube-latest.zip");
 
   console.log("PASSED: Download URL allowlist and filename sanitization verified.");
