@@ -17,12 +17,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleBlockBanners = document.getElementById('toggleBlockBanners');
   const toggleBypassAntiAdblock = document.getElementById('toggleBypassAntiAdblock');
   const toggleNonStop = document.getElementById('toggleNonStop');
+  const toggleConnectInternet = document.getElementById('toggleConnectInternet');
+
+  const btnCheckUpdate = document.getElementById('btnCheckUpdate');
+  const lblCheckUpdate = document.getElementById('lblCheckUpdate');
+  const btnDownloadUpdate = document.getElementById('btnDownloadUpdate');
+  const lblDownloadUpdate = document.getElementById('lblDownloadUpdate');
+  const updateStatusText = document.getElementById('updateStatusText');
+  const currentVersionBadge = document.getElementById('currentVersionBadge');
+  const headerVersionBadge = document.getElementById('headerVersionBadge');
 
   const statAdsSkipped = document.getElementById('statAdsSkipped');
   const statBannersBlocked = document.getElementById('statBannersBlocked');
   const statTimeSaved = document.getElementById('statTimeSaved');
 
   const btnResetStats = document.getElementById('btnResetStats');
+
+  const CURRENT_VERSION = (typeof chrome !== 'undefined' && chrome.runtime?.getManifest?.()?.version) || '1.2.1';
+  if (currentVersionBadge) currentVersionBadge.textContent = `v${CURRENT_VERSION}`;
+  if (headerVersionBadge) headerVersionBadge.textContent = `Shield v${CURRENT_VERSION}`;
 
   const subToggles = [
     toggleFastForward,
@@ -39,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     blockBanners: true,
     bypassAntiAdblock: true,
     nonStop: true,
+    connectInternet: false,
     stats: {
       adsSkipped: 0,
       bannersBlocked: 0,
@@ -91,6 +105,24 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleBlockBanners.checked = data.blockBanners !== false;
     toggleBypassAntiAdblock.checked = data.bypassAntiAdblock !== false;
     toggleNonStop.checked = data.nonStop !== false;
+
+    // Connect to Internet toggle & Update check button state
+    const isInternetAllowed = data.connectInternet === true;
+    if (toggleConnectInternet) {
+      toggleConnectInternet.checked = isInternetAllowed;
+    }
+    if (btnCheckUpdate) {
+      btnCheckUpdate.disabled = !isInternetAllowed;
+    }
+    if (!isInternetAllowed) {
+      if (updateStatusText) {
+        updateStatusText.textContent = 'Turn on "Connect to Internet" to check for updates';
+        updateStatusText.style.color = 'var(--text-muted)';
+      }
+      if (btnDownloadUpdate) {
+        btnDownloadUpdate.classList.add('hidden');
+      }
+    }
 
     // Stats
     const stats = data.stats || { adsSkipped: 0, bannersBlocked: 0, timeSavedSeconds: 0 };
@@ -173,6 +205,205 @@ document.addEventListener('DOMContentLoaded', () => {
   toggleNonStop.addEventListener('change', (e) => {
     saveOption('nonStop', e.target.checked);
   });
+
+  // Connect to Internet Toggle
+  if (toggleConnectInternet) {
+    toggleConnectInternet.addEventListener('change', (e) => {
+      const allowed = e.target.checked;
+      saveOption('connectInternet', allowed);
+      if (btnCheckUpdate) {
+        btnCheckUpdate.disabled = !allowed;
+      }
+      if (!allowed) {
+        if (btnDownloadUpdate) btnDownloadUpdate.classList.add('hidden');
+        if (updateStatusText) {
+          updateStatusText.textContent = 'Turn on "Connect to Internet" to check for updates';
+          updateStatusText.style.color = 'var(--text-muted)';
+        }
+      } else {
+        if (updateStatusText) {
+          updateStatusText.textContent = 'Ready to check for updates from Git.';
+          updateStatusText.style.color = 'var(--accent-emerald)';
+        }
+      }
+    });
+  }
+
+  // Version Comparison Helper (Strict Numerical Semantic Ordering: Major.Minor.Patch)
+  function parseSemver(v) {
+    if (typeof v !== 'string') return [0, 0, 0];
+    const clean = v.replace(/^v/i, '').trim();
+    const mainPart = clean.split('-')[0].split('+')[0];
+    const parts = mainPart.split('.').map((p) => parseInt(p, 10) || 0);
+    while (parts.length < 3) parts.push(0);
+    return parts.slice(0, 3);
+  }
+
+  function compareVersions(v1, v2) {
+    const [maj1, min1, pat1] = parseSemver(v1);
+    const [maj2, min2, pat2] = parseSemver(v2);
+
+    if (maj1 !== maj2) return maj1 > maj2 ? 1 : -1;
+    if (min1 !== min2) return min1 > min2 ? 1 : -1;
+    if (pat1 !== pat2) return pat1 > pat2 ? 1 : -1;
+    return 0;
+  }
+
+  let latestUpdateData = null;
+
+  function handleUpdateCheckResult(res) {
+    if (btnCheckUpdate) {
+      btnCheckUpdate.disabled = !toggleConnectInternet.checked;
+    }
+    if (lblCheckUpdate) {
+      lblCheckUpdate.textContent = 'Check for Update';
+    }
+
+    if (!res || res.error) {
+      if (updateStatusText) {
+        updateStatusText.textContent = `❌ ${res?.error || 'Update check failed. Check internet.'}`;
+        updateStatusText.style.color = 'var(--accent-red)';
+      }
+      return;
+    }
+
+    latestUpdateData = res;
+
+    if (res.hasUpdate) {
+      if (updateStatusText) {
+        updateStatusText.innerHTML = `✨ Update found: <strong>v${res.latestVersion}</strong> (current: v${res.currentVersion})`;
+        updateStatusText.style.color = 'var(--accent-emerald)';
+      }
+      if (lblDownloadUpdate) {
+        lblDownloadUpdate.textContent = `Download v${res.latestVersion} (Git)`;
+      }
+      if (btnDownloadUpdate) {
+        btnDownloadUpdate.classList.remove('hidden');
+      }
+    } else {
+      if (updateStatusText) {
+        updateStatusText.textContent = `✅ Up to date! Version v${res.currentVersion} is the latest.`;
+        updateStatusText.style.color = 'var(--accent-emerald)';
+      }
+      if (btnDownloadUpdate) {
+        btnDownloadUpdate.classList.add('hidden');
+      }
+    }
+  }
+
+  // Check for Update Button
+  if (btnCheckUpdate) {
+    btnCheckUpdate.addEventListener('click', async () => {
+      if (!toggleConnectInternet.checked) {
+        if (updateStatusText) {
+          updateStatusText.textContent = '⚠️ Enable "Connect to Internet" toggle first!';
+          updateStatusText.style.color = 'var(--accent-red)';
+        }
+        return;
+      }
+
+      btnCheckUpdate.disabled = true;
+      if (lblCheckUpdate) lblCheckUpdate.textContent = 'Checking Git...';
+      if (updateStatusText) {
+        updateStatusText.textContent = 'Querying Git repository for updates...';
+        updateStatusText.style.color = 'var(--text-secondary)';
+      }
+      if (btnDownloadUpdate) btnDownloadUpdate.classList.add('hidden');
+
+      // 1. Try background service worker
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ action: 'CHECK_GIT_UPDATES' }, (res) => {
+          if (chrome.runtime.lastError) {
+            checkDirectFallback();
+          } else {
+            handleUpdateCheckResult(res);
+          }
+        });
+      } else {
+        checkDirectFallback();
+      }
+
+      async function checkDirectFallback() {
+        try {
+          const res = await fetch('https://raw.githubusercontent.com/Spec-Pilot/open-tube/main/manifest.json');
+          if (res.ok) {
+            const data = await res.json();
+            const remoteVersion = data.version;
+            const comparison = compareVersions(remoteVersion, CURRENT_VERSION);
+            handleUpdateCheckResult({
+              success: true,
+              hasUpdate: comparison > 0,
+              currentVersion: CURRENT_VERSION,
+              latestVersion: remoteVersion,
+              downloadUrl: 'https://github.com/Spec-Pilot/open-tube/archive/refs/heads/main.zip'
+            });
+          } else {
+            handleUpdateCheckResult({ error: 'Failed to reach GitHub.' });
+          }
+        } catch (err) {
+          handleUpdateCheckResult({ error: err.message || 'Network error.' });
+        }
+      }
+    });
+  }
+
+  // Download Update Button
+  if (btnDownloadUpdate) {
+    btnDownloadUpdate.addEventListener('click', () => {
+      if (!toggleConnectInternet.checked) {
+        if (updateStatusText) {
+          updateStatusText.textContent = '⚠️ Enable "Connect to Internet" toggle first!';
+          updateStatusText.style.color = 'var(--accent-red)';
+        }
+        return;
+      }
+
+      const downloadUrl =
+        latestUpdateData?.downloadUrl || 'https://github.com/Spec-Pilot/open-tube/archive/refs/heads/main.zip';
+      const version = latestUpdateData?.latestVersion || 'latest';
+      const filename = `open-tube-v${version}.zip`;
+
+      if (updateStatusText) {
+        updateStatusText.textContent = `⏳ Downloading v${version}...`;
+        updateStatusText.style.color = 'var(--accent-blue)';
+      }
+
+      if (typeof chrome !== 'undefined' && chrome.downloads && chrome.downloads.download) {
+        chrome.downloads.download(
+          {
+            url: downloadUrl,
+            filename: filename,
+            saveAs: true
+          },
+          (downloadId) => {
+            if (chrome.runtime.lastError) {
+              window.open(downloadUrl, '_blank');
+            }
+            if (updateStatusText) {
+              updateStatusText.innerHTML = `📦 Downloaded! Extract zip into extension folder & reload at <strong>chrome://extensions</strong>`;
+              updateStatusText.style.color = 'var(--accent-emerald)';
+            }
+          }
+        );
+      } else if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ action: 'DOWNLOAD_GIT_UPDATE', downloadUrl, filename }, (res) => {
+          if (res?.fallbackUrl) {
+            window.open(res.fallbackUrl, '_blank');
+          }
+          if (updateStatusText) {
+            updateStatusText.innerHTML = `📦 Downloaded! Extract zip into extension folder & reload at <strong>chrome://extensions</strong>`;
+            updateStatusText.style.color = 'var(--accent-emerald)';
+          }
+        });
+      } else {
+        window.open(downloadUrl, '_blank');
+        if (updateStatusText) {
+          updateStatusText.innerHTML = `📦 Download started! Extract zip into extension folder & reload at <strong>chrome://extensions</strong>`;
+          updateStatusText.style.color = 'var(--accent-emerald)';
+        }
+      }
+    });
+  }
 
   // Reset Stats Button
   btnResetStats.addEventListener('click', () => {

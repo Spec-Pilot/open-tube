@@ -195,6 +195,9 @@ async function run() {
           hasBannersBlocked: !!document.getElementById('statBannersBlocked'),
           hasTimeSaved: !!document.getElementById('statTimeSaved'),
           hasToggleNonStop: !!document.getElementById('toggleNonStop'),
+          hasToggleConnectInternet: !!document.getElementById('toggleConnectInternet'),
+          hasBtnCheckUpdate: !!document.getElementById('btnCheckUpdate'),
+          hasUpdateStatusText: !!document.getElementById('updateStatusText'),
           statusText: document.getElementById('statusLabel')?.textContent
         })
       `,

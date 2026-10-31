@@ -16,7 +16,7 @@
         </div>
         <div class="brand-text">
           <h1>OpenTube</h1>
-          <span class="badge">Shield v1.2</span>
+          <span class="badge" id="headerVersionBadge">Shield v1.2.1</span>
         </div>
       </div>
       <div class="status-indicator" id="statusPill">
@@ -113,6 +113,37 @@
           <input type="checkbox" id="toggleNonStop" checked>
           <span class="slider round"></span>
         </label>
+      </div>
+    </div>
+
+    <!-- Software Updates & Git Network Access -->
+    <div class="update-section">
+      <div class="section-header">
+        <h2 class="section-title">Git Updates & Network</h2>
+        <span class="version-badge" id="currentVersionBadge">v1.2.1</span>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-text">
+          <span class="feature-name">Connect to Internet</span>
+          <span class="feature-desc">Required to check and download Git updates</span>
+        </div>
+        <label class="switch sm">
+          <input type="checkbox" id="toggleConnectInternet">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <div class="update-action-box">
+        <button class="btn-action" id="btnCheckUpdate" disabled>
+          <span class="btn-icon">🔄</span>
+          <span class="btn-text-content" id="lblCheckUpdate">Check for Update</span>
+        </button>
+        <button class="btn-action btn-download hidden" id="btnDownloadUpdate">
+          <span class="btn-icon">⬇️</span>
+          <span class="btn-text-content" id="lblDownloadUpdate">Download Latest Update</span>
+        </button>
+        <div class="update-status" id="updateStatusText">Turn on "Connect to Internet" to check for updates</div>
       </div>
     </div>
 
