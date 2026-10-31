@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const btnResetStats = document.getElementById('btnResetStats');
 
-  const CURRENT_VERSION = (typeof chrome !== 'undefined' && chrome.runtime?.getManifest?.()?.version) || '1.3';
+  const CURRENT_VERSION = (typeof chrome !== 'undefined' && chrome.runtime?.getManifest?.()?.version) || '1.4';
   if (currentVersionBadge) currentVersionBadge.textContent = `v${CURRENT_VERSION}`;
   if (headerVersionBadge) headerVersionBadge.textContent = `Shield v${CURRENT_VERSION}`;
 

@@ -28,6 +28,7 @@ Always run the test suite to verify changes before completing tasks:
 - **Anti-Detection & Stealth**: Never simply reject or block YouTube internal tracking endpoints (`/api/stats/ads`, `/pagead/`); always return synthetic `200 OK` responses to avoid anti-adblock detection.
 - **Preserve Existing Code & Comments**: Maintain existing comments, structure, and naming conventions.
 - **Atomic & Focused Changes**: Keep commits and edits minimal, targeted, and directly related to the task.
+- **Version Bump on Every Commit**: Always bump the version (e.g. semver minor/patch) across `manifest.json`, `popup/popup.html`, `popup/popup.js`, and `scripts/background.js` on every commit so releases and updates are tracked in strict sequential order.
 
 ## Commit Attribution
 AI commits must include:
