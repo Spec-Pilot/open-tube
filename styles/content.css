@@ -1,7 +1,7 @@
 /**
  * OpenTube AdShield - High-Performance Cosmetic Ad Blocking Filter
- * Completely eliminates banner ads, in-player overlays, skip buttons, and anti-adblock modals.
- * Scoped to html:not(.opentube-disabled) so disabling the main toggle restores YouTube's natural state.
+ * Hides banner ads, promoted items, sponsored suggestions, and anti-adblock modals.
+ * Scoped to html:not(.opentube-disabled) so toggling master switch restores YouTube cleanly.
  */
 
 html:not(.opentube-disabled) :is(
@@ -22,14 +22,13 @@ html:not(.opentube-disabled) :is(
   /* Video Watch Page Ads */
   #player-ads,
   ytd-player-legacy-desktop-watch-ads-renderer,
-  #panels:has(ytd-ads-engagement-panel-content-renderer),
   ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"],
   ytd-action-companion-ad-renderer,
   #secondary #companion,
   #secondary-inner #companion,
   ytd-companion-ad-renderer,
 
-  /* In-Player Overlays & Popups (Non-breaking overlays only) */
+  /* In-Player Overlays & Popups */
   .ytp-ad-overlay-container,
   .ytp-ad-message-container,
   .ytp-ad-action-interstitial-background-container,
@@ -38,7 +37,6 @@ html:not(.opentube-disabled) :is(
   .ytp-ad-hover-text-button-renderer,
   ytd-ad-hover-text-button-renderer,
   .annotation.annotation-type-custom,
-  .ytp-ad-overlay-slot,
 
   /* Search Result Ads */
   ytd-promoted-sparkles-text-search-renderer,
@@ -56,17 +54,6 @@ html:not(.opentube-disabled) :is(
   tp-yt-iron-overlay-backdrop.opened:has(~ tp-yt-paper-dialog ytd-enforcement-message-view-model)
 ) {
   display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  height: 0 !important;
-  max-height: 0 !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  position: absolute !important;
-  left: -99999px !important;
-  top: -99999px !important;
 }
 
 /* Ensure no blank spaces left behind by removed ads */

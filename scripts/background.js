@@ -42,6 +42,24 @@ function updateDNRRuleset(enabled) {
   }
 }
 
+// Purge any legacy dynamic DNR rules that break YouTube player endpoints
+function purgeStaleDynamicRules() {
+  if (typeof chrome !== 'undefined' && chrome.declarativeNetRequest && chrome.declarativeNetRequest.getDynamicRules) {
+    chrome.declarativeNetRequest.getDynamicRules().then((rules) => {
+      const staleRuleIds = rules
+        .filter((r) => {
+          const filter = r.condition?.urlFilter || '';
+          return filter.includes('doubleclick') || filter.includes('google') || filter.includes('youtube');
+        })
+        .map((r) => r.id);
+      if (staleRuleIds.length > 0) {
+        chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: staleRuleIds });
+      }
+    }).catch(() => { });
+  }
+}
+purgeStaleDynamicRules();
+
 // Listen for storage changes to keep DNR ruleset and badge in sync
 if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
   chrome.storage.onChanged.addListener((changes, area) => {
@@ -325,7 +343,7 @@ const RELEASES_API_URL = `https://api.github.com/repos/${GIT_REPO}/releases/late
 const REPO_ZIP_URL = `https://github.com/${GIT_REPO}/archive/refs/heads/main.zip`;
 
 async function checkForGitUpdates() {
-  const currentVersion = chrome.runtime.getManifest()?.version || '1.9';
+  const currentVersion = chrome.runtime.getManifest()?.version || '2.0';
   let remoteVersion = null;
   let downloadUrl = REPO_ZIP_URL;
   let releaseNotes = '';

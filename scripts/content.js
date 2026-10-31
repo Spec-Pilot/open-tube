@@ -236,9 +236,8 @@
           '.ytp-skip-ad-button',
           'button.ytp-ad-skip-button-text',
           '.ytp-ad-overlay-close-button',
-          'button[aria-label*="Skip ad" i]',
-          'button[aria-label*="Skip" i]',
-          '.ytp-ad-preview-container',
+          'button[aria-label="Skip ad" i]',
+          'button[aria-label="Skip Ad" i]',
           '.ytp-ad-image-overlay button'
         ];
 
@@ -301,6 +300,7 @@
    */
   function handleShortsAds() {
     if (!config.enabled) return;
+    if (typeof window !== 'undefined' && window.location && !window.location.pathname.startsWith('/shorts')) return;
 
     const currentShort = document.querySelector('ytd-reel-video-renderer[is-active]');
     if (currentShort) {
@@ -462,18 +462,23 @@
       attributeFilter: ['class', 'src']
     });
 
-    // Ensure initial playback when loading directly into a video
-    setTimeout(() => {
+    // Helper to ensure natural video playback without false pauses
+    function ensurePlayback() {
+      if (!config.enabled || userPaused) return;
       const v = document.querySelector('video.html5-main-video') || document.querySelector('video');
       const p = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
-      if (v && v.paused && v.currentTime === 0 && !userPaused && !isAdShowing(p)) {
+      if (v && v.paused && !isAdShowing(p)) {
         if (p && typeof p.playVideo === 'function') {
           p.playVideo();
         } else {
           v.play().catch(() => {});
         }
       }
-    }, 400);
+    }
+
+    // Ensure initial playback when loading directly into a video
+    setTimeout(ensurePlayback, 300);
+    setTimeout(ensurePlayback, 800);
 
     // Reset state on YouTube navigation events (SPA)
     window.addEventListener('yt-navigate-start', () => {
@@ -499,17 +504,8 @@
       runEngine();
 
       // Ensure next video in playlist or autoplay starts playing automatically
-      setTimeout(() => {
-        const v = document.querySelector('video.html5-main-video') || document.querySelector('video');
-        const p = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
-        if (v && v.paused && !userPaused && !isAdShowing(p)) {
-          if (p && typeof p.playVideo === 'function') {
-            p.playVideo();
-          } else {
-            v.play().catch(() => {});
-          }
-        }
-      }, 300);
+      setTimeout(ensurePlayback, 200);
+      setTimeout(ensurePlayback, 600);
     });
 
     window.addEventListener('spfdone', () => {
