@@ -4,12 +4,12 @@
 
 # 🛡️ OpenTube AdShield
 
-> **A high-performance, open-source YouTube ad blocker and non-stop player for Chrome and Edge.**  
+> **A high-performance, open-source YouTube ad blocker and non-stop player for Chrome, Edge, Brave, and Firefox.**  
 > Blazingly fast, undetectable, 100% client-side, and zero telemetry.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue.svg)](manifest.json)
-[![Chrome & Edge](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge%20%7C%20Brave-red.svg)](INSTALL.md)
+[![Browsers](https://img.shields.io/badge/Browser-Chrome%20%7C%20Edge%20%7C%20Brave%20%7C%20Firefox-red.svg)](INSTALL.md)
 
 ---
 
@@ -43,6 +43,7 @@ Installing OpenTube AdShield takes less than 60 seconds on any Chromium browser.
    * **Chrome**: `chrome://extensions`
    * **Edge**: `edge://extensions`
    * **Brave**: `brave://extensions`
+   * **Firefox**: `about:debugging#/runtime/this-firefox`
 
 3. Turn **ON** the **"Developer mode"** toggle (top-right corner).
 4. Click **"Load unpacked"** and select the folder containing `manifest.json`.

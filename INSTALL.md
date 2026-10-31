@@ -94,6 +94,19 @@ A step-by-step beginner's guide to installing and using **OpenTube AdShield** on
 
 ---
 
+### 5. Mozilla Firefox
+
+1. Open Firefox and type into the address bar:
+   ```text
+   about:debugging#/runtime/this-firefox
+   ```
+   and press **Enter**.
+2. Under the **Temporary Extensions** section, click the **"Load Temporary Add-on..."** button.
+3. In the file picker, select the `manifest.json` file inside the OpenTube AdShield directory.
+4. The extension loads immediately with full Manifest V3 ad-blocking and pre-emptive ad elimination.
+
+---
+
 ## 🎯 How to Verify It's Working
 
 1. Open **[YouTube](https://www.youtube.com)** in a new tab.
