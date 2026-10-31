@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OpenTube AdShield - YouTube Ad Blocker",
-  "version": "2.3",
+  "version": "2.4",
   "description": "Lightning-fast open-source YouTube ad blocker. Prevents ads from opening, eliminates pauses, auto-skips, and bypasses popups.",
   "author": "OpenTube Contributors",
   "permissions": [
@@ -31,6 +31,9 @@
     }
   },
   "background": {
+    "scripts": [
+      "scripts/background.js"
+    ],
     "service_worker": "scripts/background.js"
   },
   "content_scripts": [
