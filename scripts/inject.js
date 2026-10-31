@@ -80,16 +80,31 @@
   window.addEventListener('pointerdown', registerUserAction, true);
   window.addEventListener('mousedown', registerUserAction, true);
 
-  // Clear deliberate pause flag when navigating to next video or when autoplay begins
-  function onNavigationReset() {
+  // Track navigation state to allow YouTube media pipeline teardown during playlist transitions
+  let isNavigating = false;
+
+  function onNavigationStart() {
+    isNavigating = true;
     userIntentionallyPaused = false;
     lastUserActionTime = 0;
     lastPauseTime = 0;
   }
-  window.addEventListener('yt-navigate-finish', onNavigationReset, true);
-  window.addEventListener('yt-navigate-start', onNavigationReset, true);
-  window.addEventListener('yt-page-data-updated', onNavigationReset, true);
-  window.addEventListener('spfdone', onNavigationReset, true);
+
+  function onNavigationEnd() {
+    isNavigating = false;
+    userIntentionallyPaused = false;
+    lastUserActionTime = 0;
+    lastPauseTime = 0;
+    const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
+    if (video && video.playbackRate === 16.0) {
+      video.playbackRate = 1.0;
+    }
+  }
+
+  window.addEventListener('yt-navigate-start', onNavigationStart, true);
+  window.addEventListener('yt-navigate-finish', onNavigationEnd, true);
+  window.addEventListener('yt-page-data-updated', onNavigationEnd, true);
+  window.addEventListener('spfdone', onNavigationEnd, true);
 
   // When a video starts playing:
   document.addEventListener('play', (e) => {
@@ -141,6 +156,11 @@
       const originalVideoPause = HTMLMediaElement.prototype.pause;
       HTMLMediaElement.prototype.pause = function () {
         if (config.enabled && config.nonStop && this.tagName === 'VIDEO') {
+          // Never block pause if switching tracks in a playlist, at video start, or during initial buffering
+          if (isNavigating || this.currentTime === 0 || (this.readyState !== undefined && this.readyState < 2)) {
+            return originalVideoPause.apply(this, arguments);
+          }
+
           const timeSinceUser = Date.now() - lastUserActionTime;
           const isRecentUserAction = timeSinceUser < 1000;
 
@@ -157,7 +177,7 @@
 
   /**
    * 1. PLAYER DATA STERILIZATION
-   * Strips ad placements, ad slots, and ad break heartbeat parameters so YouTube player
+   * Strips ad placements, ad slots, and ad break parameters so YouTube player
    * initializes identical to YouTube Premium (zero ads scheduled).
    * Returns true if ad placements/slots were detected and sterilized.
    */
@@ -182,9 +202,6 @@
       if (response.adBreakHeartbeatParams) {
         hasAds = true;
         delete response.adBreakHeartbeatParams;
-      }
-      if (response.adSignalsInfo) {
-        delete response.adSignalsInfo;
       }
       if (response.paidContentOverlay) {
         hasAds = true;
@@ -529,9 +546,12 @@
       }
 
       // 2. Mute and jump to end to instantly clear unskippable ads
+      // SAFETY GUARD: NEVER seek currentTime to duration if video.duration > 60!
+      // Real YouTube ads are max 15-30s. Legitimate music videos and content are minutes long.
+      // Fast-forwarding or seeking duration > 60 skips the user's actual video and causes playlist skip loops.
       if (video) {
         video.muted = true;
-        if (isFinite(video.duration) && video.duration > 0) {
+        if (isFinite(video.duration) && video.duration > 0 && video.duration <= 60) {
           video.currentTime = video.duration;
         }
         if (video.playbackRate !== 16.0) {
@@ -568,10 +588,15 @@
       } else if (video && video.paused) {
         video.play().catch(() => { });
       }
+    } else {
+      // Ad has ended or is not playing: restore normal playback rate if accelerated
+      if (video && video.playbackRate === 16.0) {
+        video.playbackRate = 1.0;
+      }
     }
 
     // Auto-resume video only if paused by YouTube's ad interruption or anti-adblock enforcement
-    if (config.enabled && video && video.paused && !video.ended) {
+    if (config.enabled && video && video.paused && !video.ended && !isNavigating) {
       const wasRecentAd = Date.now() - lastAdSkippedTime < 3000;
       const isAdClass = Boolean(player.classList?.contains?.('ad-showing') || player.classList?.contains?.('ad-interrupting'));
       const hasEnforcement = !!document.querySelector(
@@ -579,7 +604,7 @@
       );
 
       // Only auto-resume if an ad was active or anti-adblock enforcement was detected
-      // Never auto-resume if video was intentionally paused by the user
+      // Never auto-resume if video was intentionally paused by the user or during playlist navigation
       const shouldResume = (wasRecentAd || isAdClass || hasEnforcement) && !userIntentionallyPaused;
 
       if (shouldResume) {
@@ -634,13 +659,18 @@
           // If paused by trusted user interaction, record intentional pause
           if (isRecentUserAction) {
             userIntentionallyPaused = true;
-          } else if (!video.ended && !userIntentionallyPaused) {
-            // Script-induced pause without user interaction: auto-resume
-            dismissAllConfirmationDialogs();
-            if (player && typeof player.playVideo === 'function') {
-              player.playVideo();
-            } else {
-              video.play().catch(() => { });
+          } else if (!video.ended && !userIntentionallyPaused && !isNavigating) {
+            // Script-induced pause without user interaction: auto-resume only if anti-adblock/inactivity dialog is active
+            const hasConfirmation = !!document.querySelector(
+              'tp-yt-paper-dialog:has(#confirm-button), yt-confirm-dialog-renderer, ytd-enforcement-message-view-model'
+            );
+            if (hasConfirmation) {
+              dismissAllConfirmationDialogs();
+              if (player && typeof player.playVideo === 'function') {
+                player.playVideo();
+              } else {
+                video.play().catch(() => { });
+              }
             }
           }
         }

@@ -260,6 +260,26 @@ async function runTests() {
   assert.strictEqual(videoPlayed, true, "Video must automatically resume playback");
   console.log("PASSED: Player engine instant skipAd() triggered and video resumed seamlessly.");
 
+  // Test 5: Full-length music video preservation (duration > 60 must NEVER jump currentTime)
+  console.log("\n[Test 5] Testing music/content video preservation (duration > 60 must NEVER seek to end)...");
+  const musicVideo = {
+    muted: false,
+    duration: 231, // 3m 51s music video
+    currentTime: 10,
+    playbackRate: 1.0,
+    paused: false,
+    ended: false,
+    play: async () => { }
+  };
+  env3.document.querySelector = (sel) => {
+    if (sel.includes('video')) return musicVideo;
+    if (sel.includes('movie_player')) return mockPlayer;
+    return null;
+  };
+  env3._intervalCb();
+  assert.strictEqual(musicVideo.currentTime, 10, "Music video currentTime must NEVER jump to duration!");
+  console.log("PASSED: Music video playback position preserved without skipping.");
+
   // Test 6: Inactivity Confirmation Dialog Auto-Dismissal ("Video paused. Continue watching?")
   console.log("\n[Test 6] Testing Inactivity Confirmation Dialog Auto-Dismissal...");
   const env4 = createMockEnvironment();

@@ -156,13 +156,22 @@
 
     if (!video) return;
 
-    // Detect if an ad is active
+    // Detect if an ad is actively playing
     const hasAdClass =
       player && (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting'));
-    const hasAdOverlay = !!document.querySelector(
-      '.ytp-ad-player-overlay, .ytp-ad-text, .ytp-ad-preview-container'
-    );
-    const adCurrentlyShowing = hasAdClass || hasAdOverlay;
+
+    // Check for visible ad elements strictly when rendered
+    let hasVisibleAdOverlay = false;
+    if (hasAdClass) {
+      hasVisibleAdOverlay = true;
+    } else {
+      const adOverlay = document.querySelector('.ytp-ad-player-overlay, .ytp-ad-preview-container');
+      if (adOverlay && adOverlay.offsetParent !== null && adOverlay.getBoundingClientRect().height > 0) {
+        hasVisibleAdOverlay = true;
+      }
+    }
+
+    const adCurrentlyShowing = hasAdClass || hasVisibleAdOverlay;
 
     if (adCurrentlyShowing) {
       if (!isAdActive) {
@@ -186,7 +195,10 @@
           if (video.playbackRate !== 16.0) {
             video.playbackRate = 16.0;
           }
-          if (isFinite(video.duration) && video.duration > 0) {
+          // SAFETY GUARD: NEVER seek to duration if video.duration > 60!
+          // Real YouTube unskippable ads are strictly <= 15-30s. Seeking duration > 60
+          // skips legitimate music videos and causes an infinite playlist loop.
+          if (isFinite(video.duration) && video.duration > 0 && video.duration <= 60) {
             video.currentTime = video.duration;
           }
         } catch (err) {
@@ -426,8 +438,22 @@
     });
 
     // Reset state on YouTube navigation events (SPA)
+    window.addEventListener('yt-navigate-start', () => {
+      isAdActive = false;
+      const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
+      if (video && video.playbackRate === 16.0) {
+        video.playbackRate = normalPlaybackRate || 1.0;
+      }
+      userIntentionallyPaused = false;
+      lastUserActionTime = 0;
+    });
+
     window.addEventListener('yt-navigate-finish', () => {
       isAdActive = false;
+      const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
+      if (video && video.playbackRate === 16.0) {
+        video.playbackRate = normalPlaybackRate || 1.0;
+      }
       normalPlaybackRate = 1.0;
       mutedByExtension = false;
       userIntentionallyPaused = false;
