@@ -52,6 +52,7 @@ html:not(.opentube-disabled) :is(
   tp-yt-paper-dialog:has(ytd-enforcement-message-view-model),
   ytd-enforcement-message-view-model,
   #dialog:has(ytd-enforcement-message-view-model),
+  #error-screen:has(ytd-enforcement-message-view-model),
   tp-yt-iron-overlay-backdrop.opened:has(~ tp-yt-paper-dialog ytd-enforcement-message-view-model)
 ) {
   display: none !important;

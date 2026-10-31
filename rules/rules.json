@@ -4,7 +4,7 @@
     "priority": 1,
     "action": { "type": "block" },
     "condition": {
-      "urlFilter": "||doubleclick.net^",
+      "urlFilter": "||scorecardresearch.com^",
       "resourceTypes": ["xmlhttprequest", "image", "sub_frame", "script"]
     }
   },
@@ -13,7 +13,7 @@
     "priority": 1,
     "action": { "type": "block" },
     "condition": {
-      "urlFilter": "||googleadservices.com^",
+      "urlFilter": "||amazon-adsystem.com^",
       "resourceTypes": ["xmlhttprequest", "image", "sub_frame", "script"]
     }
   },
@@ -22,7 +22,7 @@
     "priority": 1,
     "action": { "type": "block" },
     "condition": {
-      "urlFilter": "||googlesyndication.com^",
+      "urlFilter": "||criteo.com^",
       "resourceTypes": ["xmlhttprequest", "image", "sub_frame", "script"]
     }
   },
@@ -31,7 +31,7 @@
     "priority": 1,
     "action": { "type": "block" },
     "condition": {
-      "urlFilter": "||adservice.google.com^",
+      "urlFilter": "||adnxs.com^",
       "resourceTypes": ["xmlhttprequest", "image", "sub_frame", "script"]
     }
   }

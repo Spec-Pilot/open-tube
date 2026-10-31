@@ -329,37 +329,50 @@
 
   /**
    * Anti-Adblock Warning & Enforcement Dialog Dismissal
-   * CRITICAL: Never click buttons inside ytd-enforcement-message-view-model!
-   * (Clicking it opens fundingchoices.google.com/s/whitelist whitelist redirect)
+   * Cleans up both enforcement modals and error-screen overlays.
    */
   function handleAntiAdblockBypass() {
     if (!config.enabled || !config.bypassAntiAdblock) return;
 
-    // Detect YouTube's enforcement modal
+    let recovered = false;
+
+    // 1. Detect and remove enforcement modal dialogs
     const dialog = document.querySelector(
-      'tp-yt-paper-dialog:has(ytd-enforcement-message-view-model), ytd-enforcement-message-view-model'
+      'tp-yt-paper-dialog:has(ytd-enforcement-message-view-model), ytd-enforcement-message-view-model, #dialog:has(ytd-enforcement-message-view-model)'
     );
     const backdrop = document.querySelector('tp-yt-iron-overlay-backdrop.opened');
 
-    if (!dialog) return;
-
-    // Remove enforcement dialog and backdrop cleanly
-    dialog.remove();
-    if (backdrop) {
-      backdrop.remove();
+    if (dialog) {
+      dialog.remove();
+      if (backdrop) backdrop.remove();
+      recovered = true;
+      reportAdBlocked('dialog', 1);
     }
 
-    // Resume video only if user didn't intentionally pause
-    const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
-    const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
-    if (video && video.paused && !userPaused) {
+    // 2. Clear playability error overlay and restore video player visibility
+    const errorScreen = document.querySelector('#error-screen:not([hidden]), yt-playability-error-supported-renderers:not([hidden])');
+    if (errorScreen) {
+      errorScreen.setAttribute('hidden', '');
+      errorScreen.style.display = 'none';
+      const playerContainer = document.querySelector('#player-container');
+      if (playerContainer) {
+        playerContainer.removeAttribute('hidden');
+        playerContainer.style.display = '';
+      }
+      recovered = true;
+      reportAdBlocked('dialog', 1);
+    }
+
+    // 3. Resume playback if error was cleared and user didn't deliberately pause
+    if (recovered && !userPaused) {
+      const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
+      const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
       if (player && typeof player.playVideo === 'function') {
         player.playVideo();
-      } else {
+      } else if (video && video.paused) {
         video.play().catch(() => {});
       }
     }
-    reportAdBlocked('dialog', 1);
   }
 
   /**
@@ -448,6 +461,19 @@
       attributes: true,
       attributeFilter: ['class', 'src']
     });
+
+    // Ensure initial playback when loading directly into a video
+    setTimeout(() => {
+      const v = document.querySelector('video.html5-main-video') || document.querySelector('video');
+      const p = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
+      if (v && v.paused && v.currentTime === 0 && !userPaused && !isAdShowing(p)) {
+        if (p && typeof p.playVideo === 'function') {
+          p.playVideo();
+        } else {
+          v.play().catch(() => {});
+        }
+      }
+    }, 400);
 
     // Reset state on YouTube navigation events (SPA)
     window.addEventListener('yt-navigate-start', () => {
