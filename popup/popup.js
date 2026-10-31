@@ -432,6 +432,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // GitHub Repository Link Handler
+  const githubLink = document.querySelector('.github-link');
+  if (githubLink) {
+    githubLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      const repoUrl = 'https://github.com/Spec-Pilot/open-tube';
+      if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+        chrome.tabs.create({ url: repoUrl });
+      } else {
+        window.open(repoUrl, '_blank');
+      }
+    });
+  }
+
   // Listen for storage changes in real-time
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
     chrome.storage.onChanged.addListener((changes, area) => {
