@@ -26,6 +26,7 @@
   let checkTimer = null;
   let userIntentionallyPaused = false;
   let lastUserActionTime = 0;
+  let lastPauseTime = 0;
 
   // Sync configuration to inject.js running in MAIN world
   function syncConfigToInject() {
@@ -96,20 +97,21 @@
     if (e && (e.isTrusted || e.isTrusted === undefined)) {
       lastUserActionTime = Date.now();
       const target = e.target;
-      const isPlayPauseButton = target && (
+      const isPlayerAction = target && (
+        target.closest?.('#movie_player') ||
+        target.closest?.('.html5-video-player') ||
+        target.closest?.('.html5-main-video') ||
         target.closest?.('.ytp-play-button') ||
         target.closest?.('button[aria-label*="Play" i]') ||
         target.closest?.('button[aria-label*="Pause" i]') ||
-        target.closest?.('#movie_player video') ||
-        target.closest?.('.html5-main-video') ||
-        target.classList?.contains?.('html5-main-video')
+        target.tagName === 'VIDEO'
       );
       const isPlayPauseKey = e.key === ' ' || e.key === 'k' || e.key === 'K' || e.code === 'Space' || e.key === 'MediaPlayPause';
 
-      if (isPlayPauseButton || isPlayPauseKey) {
+      if (isPlayerAction || isPlayPauseKey) {
         const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
-        if (video) {
-          userIntentionallyPaused = !video.paused;
+        if (video && video.paused && (Date.now() - lastPauseTime > 300)) {
+          userIntentionallyPaused = false;
         }
       }
     }
@@ -118,6 +120,7 @@
   window.addEventListener('keydown', registerUserAction, true);
   window.addEventListener('touchstart', registerUserAction, true);
   window.addEventListener('pointerdown', registerUserAction, true);
+  window.addEventListener('mousedown', registerUserAction, true);
 
   // Report statistics back to background worker
   function reportAdBlocked(type = 'ad', count = 1) {
@@ -303,31 +306,38 @@
   function handleAntiAdblockBypass() {
     if (!config.enabled) return;
 
-    // Detect YouTube's enforcement modal or "Video paused. Continue watching?" dialog
+    // Detect YouTube's enforcement modal or opened inactivity confirmation dialog
     const dialog = document.querySelector(
-      'tp-yt-paper-dialog:has(ytd-enforcement-message-view-model), ytd-enforcement-message-view-model, yt-confirm-dialog-renderer, tp-yt-paper-dialog:has(yt-confirm-dialog-renderer)'
+      'tp-yt-paper-dialog:has(ytd-enforcement-message-view-model), ytd-enforcement-message-view-model, tp-yt-paper-dialog[opened]:has(yt-confirm-dialog-renderer), tp-yt-paper-dialog.opened:has(yt-confirm-dialog-renderer)'
     );
     const backdrop = document.querySelector('tp-yt-iron-overlay-backdrop.opened');
 
-    // Click confirm button if present
-    const confirmBtn = document.querySelector(
-      'yt-confirm-dialog-renderer #confirm-button button, yt-confirm-dialog-renderer #confirm-button, tp-yt-paper-dialog:has(#confirm-button) #confirm-button button, #confirm-button button'
-    );
+    if (!dialog && !backdrop) return;
+
+    // Click confirm button if present inside the dialog
+    const confirmBtn = dialog ? dialog.querySelector('#confirm-button button, #confirm-button, button') : null;
     if (confirmBtn) {
       try { confirmBtn.click(); } catch (e) {}
     }
 
     if (dialog) {
       dialog.remove();
-      if (backdrop) backdrop.remove();
+    }
+    if (backdrop) {
+      backdrop.remove();
+    }
 
-      // Resume video
-      const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
-      if (video && video.paused) {
+    // Resume video only if user didn't intentionally pause
+    const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
+    const player = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
+    if (video && video.paused && !userIntentionallyPaused) {
+      if (player && typeof player.playVideo === 'function') {
+        player.playVideo();
+      } else {
         video.play().catch(() => {});
       }
-      reportAdBlocked('dialog', 1);
     }
+    reportAdBlocked('dialog', 1);
   }
 
   /**
@@ -342,16 +352,17 @@
 
     if (!video) return;
 
-    // If video is paused without user intention and hasn't ended, unpause it
-    if (video.paused && !video.ended && !userIntentionallyPaused) {
-      const timeSinceUser = Date.now() - lastUserActionTime;
-      if (timeSinceUser > 350) {
-        handleAntiAdblockBypass();
-        if (player && typeof player.playVideo === 'function') {
-          player.playVideo();
-        } else {
-          video.play().catch(() => {});
-        }
+    const hasEnforcement = !!document.querySelector(
+      'ytd-enforcement-message-view-model, tp-yt-paper-dialog:has(ytd-enforcement-message-view-model)'
+    );
+
+    // Only unpause if enforcement modal is present and user did not intentionally pause
+    if (hasEnforcement && !userIntentionallyPaused) {
+      handleAntiAdblockBypass();
+      if (player && typeof player.playVideo === 'function') {
+        player.playVideo();
+      } else {
+        video.play().catch(() => {});
       }
     }
   }
@@ -432,21 +443,43 @@
       normalPlaybackRate = 1.0;
       mutedByExtension = false;
       userIntentionallyPaused = false;
+      lastUserActionTime = 0;
+      lastPauseTime = 0;
       runEngine();
     });
 
     window.addEventListener('spfdone', () => {
       isAdActive = false;
       userIntentionallyPaused = false;
+      lastUserActionTime = 0;
+      lastPauseTime = 0;
       runEngine();
     });
+
+    // Hook video pause event directly to record user intentional pause
+    document.addEventListener(
+      'pause',
+      (e) => {
+        if (e.target && e.target.tagName === 'VIDEO') {
+          lastPauseTime = Date.now();
+          const timeSinceUser = Date.now() - lastUserActionTime;
+          if (timeSinceUser < 1000) {
+            userIntentionallyPaused = true;
+          }
+        }
+      },
+      true
+    );
 
     // Hook video play event directly
     document.addEventListener(
       'play',
       (e) => {
         if (e.target && e.target.tagName === 'VIDEO') {
-          userIntentionallyPaused = false;
+          const timeSinceUser = Date.now() - lastUserActionTime;
+          if (timeSinceUser < 1000 || e.target.ended) {
+            userIntentionallyPaused = false;
+          }
           handleVideoAds();
           handleAutoPausePrevention();
         }

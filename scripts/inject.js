@@ -29,6 +29,7 @@
 
   // Track user actions and deliberate pause intentions vs YouTube script auto-pauses
   let lastUserActionTime = 0;
+  let lastPauseTime = 0;
   let userIntentionallyPaused = false;
 
   function registerUserAction(e) {
@@ -36,24 +37,25 @@
     if (e && (e.isTrusted || e.isTrusted === undefined)) {
       lastUserActionTime = Date.now();
 
-      // Check if user clicked/typed to deliberately toggle play/pause
+      // Check if user interacted with player or typed to toggle play/pause
       const target = e.target;
-      const isPlayPauseButton = target && (
+      const isPlayerAction = target && (
+        target.closest?.('#movie_player') ||
+        target.closest?.('.html5-video-player') ||
+        target.closest?.('.html5-main-video') ||
         target.closest?.('.ytp-play-button') ||
         target.closest?.('button[aria-label*="Play" i]') ||
         target.closest?.('button[aria-label*="Pause" i]') ||
-        target.closest?.('#movie_player video') ||
-        target.closest?.('.html5-main-video') ||
-        target.classList?.contains?.('html5-main-video')
+        target.tagName === 'VIDEO'
       );
       const isPlayPauseKey = e.key === ' ' || e.key === 'k' || e.key === 'K' || e.code === 'Space' || e.key === 'MediaPlayPause';
 
-      if (isPlayPauseButton || isPlayPauseKey) {
+      if (isPlayerAction || isPlayPauseKey) {
         const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
-        if (video) {
-          // If video was playing when user clicked/pressed, user intends to pause it.
-          // If video was paused, user intends to play it.
-          userIntentionallyPaused = !video.paused;
+        // If video is paused, interaction indicates deliberate intent to play/unpause
+        // Guard against the trailing click/mouseup of the gesture that just paused it
+        if (video && video.paused && (Date.now() - lastPauseTime > 300)) {
+          userIntentionallyPaused = false;
         }
       }
     }
@@ -62,21 +64,27 @@
   window.addEventListener('keydown', registerUserAction, true);
   window.addEventListener('touchstart', registerUserAction, true);
   window.addEventListener('pointerdown', registerUserAction, true);
+  window.addEventListener('mousedown', registerUserAction, true);
 
   // Clear deliberate pause flag when navigating to next video or when autoplay begins
   function onNavigationReset() {
     userIntentionallyPaused = false;
     lastUserActionTime = 0;
+    lastPauseTime = 0;
   }
   window.addEventListener('yt-navigate-finish', onNavigationReset, true);
   window.addEventListener('yt-navigate-start', onNavigationReset, true);
   window.addEventListener('yt-page-data-updated', onNavigationReset, true);
   window.addEventListener('spfdone', onNavigationReset, true);
 
-  // When a video starts playing (e.g. autoplay starts the next video):
+  // When a video starts playing:
   document.addEventListener('play', (e) => {
     if (e.target && e.target.tagName === 'VIDEO') {
-      userIntentionallyPaused = false;
+      const timeSinceUser = Date.now() - lastUserActionTime;
+      // Only reset deliberate pause if user initiated playback or video reached end
+      if (timeSinceUser < 1000 || e.target.ended) {
+        userIntentionallyPaused = false;
+      }
     }
   }, true);
 
@@ -120,7 +128,7 @@
       HTMLMediaElement.prototype.pause = function () {
         if (config.enabled && config.nonStop && this.tagName === 'VIDEO') {
           const timeSinceUser = Date.now() - lastUserActionTime;
-          const isRecentUserAction = timeSinceUser < 350;
+          const isRecentUserAction = timeSinceUser < 1000;
 
           // If the pause was NOT initiated by trusted user interaction, video has not ended,
           // and user didn't intentionally pause: suppress the pause!
@@ -503,21 +511,17 @@
       }
     }
 
-    // Auto-resume video if paused by YouTube's ad interruption, anti-adblock, or autoplay pause
+    // Auto-resume video only if paused by YouTube's ad interruption or anti-adblock enforcement
     if (config.enabled && video && video.paused && !video.ended) {
-      const timeSinceUser = Date.now() - lastUserActionTime;
       const wasRecentAd = Date.now() - lastAdSkippedTime < 3000;
       const isAdClass = Boolean(player.classList?.contains?.('ad-showing') || player.classList?.contains?.('ad-interrupting'));
       const hasEnforcement = !!document.querySelector(
-        'ytd-enforcement-message-view-model, tp-yt-paper-dialog:has(ytd-enforcement-message-view-model), yt-confirm-dialog-renderer'
+        'ytd-enforcement-message-view-model, tp-yt-paper-dialog:has(ytd-enforcement-message-view-model)'
       );
 
-      // If pause was NOT triggered by deliberate user interaction, or ad/dialog is present: unpause immediately
-      const shouldResume =
-        (config.nonStop && !userIntentionallyPaused && timeSinceUser > 350) ||
-        wasRecentAd ||
-        isAdClass ||
-        hasEnforcement;
+      // Only auto-resume if an ad was active or anti-adblock enforcement was detected
+      // Never auto-resume if video was intentionally paused by the user
+      const shouldResume = (wasRecentAd || isAdClass || hasEnforcement) && !userIntentionallyPaused;
 
       if (shouldResume) {
         dismissAllConfirmationDialogs();
@@ -550,6 +554,8 @@
         const player = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
         if (!config.enabled) return;
 
+        lastPauseTime = Date.now();
+
         const isAdState =
           player && (
             player.classList.contains('ad-showing') ||
@@ -564,10 +570,13 @@
 
         if (config.nonStop) {
           const timeSinceUser = Date.now() - lastUserActionTime;
-          const isRecentUserAction = timeSinceUser < 350;
+          const isRecentUserAction = timeSinceUser < 1000;
 
-          // If paused by YouTube's script rather than user, instantly resume
-          if (!isRecentUserAction && !video.ended && !userIntentionallyPaused) {
+          // If paused by trusted user interaction, record intentional pause
+          if (isRecentUserAction) {
+            userIntentionallyPaused = true;
+          } else if (!video.ended && !userIntentionallyPaused) {
+            // Script-induced pause without user interaction: auto-resume
             dismissAllConfirmationDialogs();
             if (player && typeof player.playVideo === 'function') {
               player.playVideo();
@@ -588,13 +597,16 @@
   function dismissAllConfirmationDialogs() {
     // 1. Click "Yes" / "Continue" on YouTube's inactivity confirmation dialog
     const confirmButtons = [
+      'ytd-enforcement-message-view-model #confirm-button button',
+      'ytd-enforcement-message-view-model button',
+      'tp-yt-paper-dialog[opened] yt-confirm-dialog-renderer #confirm-button button',
+      'tp-yt-paper-dialog.opened yt-confirm-dialog-renderer #confirm-button button',
+      'tp-yt-paper-dialog[opened] #confirm-button button',
+      'tp-yt-paper-dialog.opened #confirm-button button',
       'yt-confirm-dialog-renderer #confirm-button button',
       'yt-confirm-dialog-renderer button#confirm-button',
-      'yt-confirm-dialog-renderer #confirm-button',
       'tp-yt-paper-dialog:has(#confirm-button) #confirm-button button',
       'tp-yt-paper-dialog:has(#confirm-button) #confirm-button',
-      '#confirm-button button',
-      'button.yt-spec-button-shape-next--filled',
       'ytd-popup-container yt-confirm-dialog-renderer #confirm-button'
     ];
 
@@ -614,9 +626,9 @@
     const dialogSelectors = [
       'tp-yt-paper-dialog:has(ytd-enforcement-message-view-model)',
       'ytd-enforcement-message-view-model',
-      'yt-confirm-dialog-renderer',
-      'tp-yt-paper-dialog:has(yt-confirm-dialog-renderer)',
-      'ytd-popup-container:has(yt-confirm-dialog-renderer)'
+      'tp-yt-paper-dialog[opened]:has(yt-confirm-dialog-renderer)',
+      'tp-yt-paper-dialog.opened:has(yt-confirm-dialog-renderer)',
+      'yt-confirm-dialog-renderer'
     ];
 
     for (const sel of dialogSelectors) {
@@ -627,14 +639,14 @@
       }
     }
 
-    // 3. Remove backdrops
-    const backdrops = document.querySelectorAll('tp-yt-iron-overlay-backdrop.opened, tp-yt-iron-overlay-backdrop');
+    // 3. Remove opened backdrops
+    const backdrops = document.querySelectorAll('tp-yt-iron-overlay-backdrop.opened');
     for (const backdrop of backdrops) {
       backdrop.remove();
       dismissed = true;
     }
 
-    if (dismissed) {
+    if (dismissed && !userIntentionallyPaused) {
       const player = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
       const video = document.querySelector('video.html5-main-video') || document.querySelector('video');
 
